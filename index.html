@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PU-PAD 3D 트윈</title>
+<style>html,body{margin:0;background:#151719}body{padding:10px;font-family:'Malgun Gothic',sans-serif}</style>
+</head><body>
+<style>
+  .app{display:flex;border-radius:8px;overflow:hidden;background:#1f2124;color:#d7dbe0;font-family:'Malgun Gothic',sans-serif;font-size:12px}
+  .stage{flex:1;position:relative;min-width:0}
+  .stage canvas{display:block;width:100%;height:100%}
+  .bar{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:7px 10px;background:linear-gradient(#2a2d31f0,#2a2d3100);pointer-events:none}
+  .bar .phs{display:flex;gap:3px;flex-wrap:wrap}
+  .bar .phs span{padding:2px 8px;border-radius:3px;font-size:11px;background:#363a40;color:#8a9099}
+  .bar .phs span.done{background:#4c5158;color:#d7dbe0}.bar .phs span.on{background:#ff8a1f;color:#1b1d20;font-weight:700}
+  .bar .clk{color:#9aa1aa;font-size:11px;white-space:nowrap;text-align:right}
+  .bar .rt{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+  .lgd{pointer-events:auto;background:#141619e8;border:1px solid #3a3e44;border-radius:6px;padding:5px 8px;font-size:10.5px;line-height:1.7;color:#c3c8cf;white-space:nowrap}
+  .lgd summary{cursor:pointer;color:#f2c230;font-weight:700;font-size:11px;list-style:none}
+  .lgd summary::-webkit-details-marker{display:none}
+  .lgd .g{color:#8a9099;margin-top:3px}
+  .lgd .it{display:flex;align-items:center;gap:6px}
+  .lgd .sw{width:22px;flex:none;display:flex;justify-content:center;align-items:center}
+  .lgd .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:2px;vertical-align:-1px}
+  .side{width:34%;min-width:360px;max-width:520px;overflow:auto;background:#26292d;border-left:1px solid #3a3e44;padding:10px}
+  .sec{background:#1b1d20;border-radius:6px;padding:8px 10px;margin-bottom:8px;line-height:1.55}
+  .sec h4{margin:0 0 5px;font-size:11px;color:#f2c230;font-weight:700;letter-spacing:.02em}
+  .ctl{display:flex;gap:4px;align-items:center;margin-bottom:6px}
+  .ctl select,.ctl button{font:inherit;font-size:12px;border:0;border-radius:4px;padding:3px 8px;background:#363a40;color:#d7dbe0;cursor:pointer}
+  .ctl .n{margin-left:auto;color:#9aa1aa}
+  .ttl{font-size:14px;font-weight:700;color:#fff}.who{color:#9aa1aa}
+  .res{border-left:3px solid #46c46e}.res.ng{border-left-color:#ff5a5a;background:#2a1b1d}.res.run{border-left-color:#4c5158}
+  .res .big{font-weight:700;font-size:13px}.res.ng .big{color:#ff8a8a}.res.ng.info{border-left-color:#ffd23f;background:#2a2617}.res.ng.info .big{color:#ffe08a}.res .big.ok{color:#7fe0a0}
+  .row{display:flex;gap:6px;padding:1px 3px;border-radius:3px}.row i{font-style:normal;width:16px;flex:none;text-align:center}
+  .row[data-lot]{cursor:pointer}.row[data-lot]:hover,.row.hl{background:#3a2a18}
+  .mut{color:#6a7079}
+  .pill{display:inline-block;padding:0 6px;border-radius:9px;font-size:10px;margin:1px 3px 1px 0;border:1px solid}
+  .p-ok{color:#7fe0a0;border-color:#2f6b45}.p-as{color:#ffd79a;border-color:#7a5a20}.p-ng{color:#ff9a9a;border-color:#7a2f2f}.p-ck{color:#a8d4ff;border-color:#2a4560}
+  table.inv{width:100%;border-collapse:collapse;font-size:11px}
+  table.inv td{padding:2px 4px;border-bottom:1px solid #2c2f34}table.inv td:last-child{text-align:right;color:#ffd79a}
+  table.inv tr.ch td{background:#3a2a18;color:#fff}table.inv tr.z td{color:#5a6068}
+  .q{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:4px}
+  details summary{cursor:pointer;color:#8a9099;font-size:11px}
+  .card{border:1px solid #ff8a1f;border-radius:5px;padding:6px 8px;margin-bottom:6px;background:#211a12}
+  .card b{color:#ff8a1f}
+</style>
+
+<div class="app" id="app">
+  <div class="stage" id="stage"><canvas id="cv"></canvas>
+    <div class="bar"><div class="phs" id="phs"></div><div class="rt"><div class="clk" id="clk"></div>
+      <details class="lgd" open><summary>표시 설명 ▾</summary>
+        <div class="it"><span class="sw"><span class="dot" style="background:#4ea1ff"></span></span>상태: <span class="dot" style="background:#9aa1aa"></span>대기 <span class="dot" style="background:#4ea1ff"></span>공정 <span class="dot" style="background:#b58cff"></span>스캔대기 <span class="dot" style="background:#ff8a1f"></span>숙성 <span class="dot" style="background:#46c46e"></span>양품 <span class="dot" style="background:#ffd23f"></span>품질대기 <span class="dot" style="background:#ff5a5a"></span>보류</div>
+        <div class="it"><span class="sw"><svg width="20" height="10"><rect x="1" y="1" width="18" height="8" rx="4" fill="#121417" stroke="#ff8a1f" stroke-width="1.6"/></svg></span>주황 테두리 = 이번 단계에 바뀐 LOT</div>
+        <div class="it"><span class="sw"><svg width="20" height="8"><line x1="1" y1="7" x2="19" y2="1" stroke="#ff5050" stroke-width="2"/></svg></span>빨간 선 = 라벨 스캔</div>
+        <div class="it"><span class="sw"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#1f6b3a" stroke="#7fe0a0"/><path d="M4.5 8l2.5 2.5 4.5-4.5" stroke="#fff" stroke-width="1.8" fill="none"/></svg></span>✓ 처리 · ✕ 차단 (내용은 오른쪽 ②)</div>
+        <div class="it"><span class="sw"><svg width="18" height="10"><rect x="1" y="1" width="16" height="8" fill="#fff"/><path d="M4 3v4M7 3v4M10 3v4M13 3v4" stroke="#222" stroke-width="1.2"/></svg></span>흰 라벨 = 라벨 출력</div>
+        <div class="it"><span class="sw"><svg width="20" height="6"><line x1="1" y1="3" x2="19" y2="3" stroke="#3fd0e0" stroke-width="1.6" stroke-dasharray="4 3"/></svg></span>청록 점선 = 계보 (부모 → 자식)</div>
+        <div class="it"><span class="sw"><svg width="16" height="11"><rect x="1" y="1" width="14" height="9" fill="#4ea1ff" stroke="#1b1d20"/><path d="M1 1l7 5 7-5" stroke="#1b1d20" fill="none"/></svg></span>파란 봉투 = SAP → 미들웨어 → MES 서버 수신</div>
+        <div class="it"><span class="sw"><svg width="16" height="11"><rect x="1" y="1" width="14" height="9" fill="#ff8a1f" stroke="#1b1d20"/><path d="M1 1l7 5 7-5" stroke="#1b1d20" fill="none"/></svg></span>주황 봉투 = MES 서버 → 미들웨어 → SAP 송신</div>
+        <div class="it"><span class="sw"><svg width="20" height="6"><line x1="1" y1="3" x2="19" y2="3" stroke="#f2c230" stroke-width="1.4" stroke-dasharray="4 3"/></svg></span>노란 점선 = 통로</div>
+        <div class="it"><span class="sw"><span class="dot" style="background:#4f78a8"></span></span>바닥: 파랑 창고 · 빨강 보류·폐기 · 노란 테두리 공정</div>
+      </details></div></div></div>
+  <div class="side" id="side"></div>
+</div>
+
+<script>
+(function(){
+var cv=document.getElementById('cv'),ctx=cv.getContext('2d'),stage=document.getElementById('stage'),side=document.getElementById('side'),app=document.getElementById('app');
+var W,H,s,ox,oy;
+function P(x,y,z){return [ox+(x-y)*0.866*s, oy+(x+y)*0.5*s-(z||0)*s];}
+function fit(){
+  var top=app.getBoundingClientRect().top+(window.scrollY||0),h=Math.max(480,window.innerHeight-Math.max(0,top-(window.scrollY||0))-12);
+  app.style.height=h+'px';var w=stage.clientWidth,dpr=window.devicePixelRatio||1;
+  cv.width=w*dpr;cv.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);W=w;H=h;
+  var xs=[],ys=[];[[-4,-0.5],[21.8,-0.5],[21.8,13],[-4,13]].forEach(function(c){[0,4].forEach(function(z){xs.push((c[0]-c[1])*0.866);ys.push((c[0]+c[1])*0.5-z);});});
+  var mnx=Math.min.apply(0,xs),mxx=Math.max.apply(0,xs),mny=Math.min.apply(0,ys),mxy=Math.max.apply(0,ys),pt=40,pb=6,px=8;
+  s=Math.min((W-2*px)/(mxx-mnx),(H-pt-pb)/(mxy-mny));
+  ox=px+((W-2*px)-(mxx-mnx)*s)/2-mnx*s;oy=pt-mny*s;}
+var K={floor:['#34383e','#26292d','#1f2124'],m:['#8a9099','#686e77','#545961'],m2:['#6f757e','#555b63','#43484f'],st:'#1b1d20',
+  roll:['#e8d9b0','#f6ecd0'],rollD:['#bfb391','#cfc3a2'],box:['#c79a62','#a57a45','#8c6a40'],pal:['#9b7a4f','#7d6040','#664e33'],
+  pad:['#ddd2b6','#bfb497','#a99f84'],fa:['#f4f1ea','#d9d4c8','#c4bfb3'],acc:'#ff8a1f',acc2:'#e06d0a',body:'#3d6fb0',hat:'#f2c230',skin:'#e7c3a0',
+  truck:['#5d7fa8','#46658a','#384f6c'],panel:['#2b3a4a','#1d2a36','#16202a'],sap:['#2e4f78','#223c5c','#1a2f49']};
+
+// ── 그리기 기본 ──
+function path(pts){ctx.beginPath();for(var i=0;i<pts.length;i++){i?ctx.lineTo(pts[i][0],pts[i][1]):ctx.moveTo(pts[i][0],pts[i][1]);}ctx.closePath();}
+function fillP(pts,f,st){path(pts);if(f){ctx.fillStyle=f;ctx.fill();}if(st){ctx.strokeStyle=st;ctx.lineWidth=0.8;ctx.stroke();}}
+function poly3(p3,f,st){fillP(p3.map(function(q){return P(q[0],q[1],q[2]);}),f,st);}
+function drawBox(x,y,z,w,d,h,c){
+  poly3([[x,y+d,z],[x+w,y+d,z],[x+w,y+d,z+h],[x,y+d,z+h]],c[1],K.st);
+  poly3([[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]],c[2],K.st);
+  poly3([[x,y,z+h],[x+w,y,z+h],[x+w,y+d,z+h],[x,y+d,z+h]],c[0],K.st);}
+function hull(p){p=p.slice().sort(function(a,b){return a[0]-b[0]||a[1]-b[1];});
+  function cr(o,a,b){return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);}
+  var lo=[],up=[],i;for(i=0;i<p.length;i++){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p[i])<=0)lo.pop();lo.push(p[i]);}
+  for(i=p.length-1;i>=0;i--){while(up.length>1&&cr(up[up.length-2],up[up.length-1],p[i])<=0)up.pop();up.push(p[i]);}
+  return lo.slice(0,-1).concat(up.slice(0,-1));}
+function drawCyl(cx,cy,cz,r,len,axis,side,cap,spin){
+  if(r<=0.01)return;var A=[],B=[];
+  for(var i=0;i<24;i++){var t=i/24*Math.PI*2,c=r*Math.cos(t),sn=r*Math.sin(t);
+    if(axis==='y'){A.push(P(cx+c,cy-len/2,cz+sn));B.push(P(cx+c,cy+len/2,cz+sn));}
+    else {A.push(P(cx+c,cy+sn,cz));B.push(P(cx+c,cy+sn,cz+len));}}
+  fillP(hull(A.concat(B)),side,K.st);fillP(B,cap,K.st);
+  if(axis==='y'){var q0=P(cx,cy+len/2,cz),q1=P(cx+Math.cos(spin||0)*r*0.85,cy+len/2,cz+Math.sin(spin||0)*r*0.85);
+    ctx.strokeStyle=K.acc2;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(q0[0],q0[1]);ctx.lineTo(q1[0],q1[1]);ctx.stroke();}}
+function lp(p,q,t){return [p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t,p[2]+(q[2]-p[2])*t];}
+function stick(a,b,c,d){poly3([a,b,c,d],'#f6f5ef','#3a3e44');ctx.strokeStyle='#1b1d20';
+  for(var k=0;k<16;k++){if((k*7)%5<2)continue;var t=0.1+0.8*k/15,u=lp(lp(a,b,t),lp(d,c,t),0.12),v=lp(lp(a,b,t),lp(d,c,t),0.72),pu=P(u[0],u[1],u[2]),pv=P(v[0],v[1],v[2]);
+    ctx.lineWidth=(k%3===0)?1.6:0.9;ctx.beginPath();ctx.moveTo(pu[0],pu[1]);ctx.lineTo(pv[0],pv[1]);ctx.stroke();}}
+// 원통 옆면 스티커: axis 'y' 는 θ(앞 오른쪽 위), 'z' 는 xy 평면 θ 방향
+function stickCyl(cx,cy,cz,r,axis,t1,t2,s1,s2){var c1=Math.cos(t1),n1=Math.sin(t1),c2=Math.cos(t2),n2=Math.sin(t2),r2=r+0.005;
+  if(axis==='y')stick([cx+r2*c1,cy+s1,cz+r2*n1],[cx+r2*c1,cy+s2,cz+r2*n1],[cx+r2*c2,cy+s2,cz+r2*n2],[cx+r2*c2,cy+s1,cz+r2*n2]);
+  else stick([cx+r2*c1,cy+r2*n1,cz+s2],[cx+r2*c2,cy+r2*n2,cz+s2],[cx+r2*c2,cy+r2*n2,cz+s1],[cx+r2*c1,cy+r2*n1,cz+s1]);}
+function IB(x,y,z,w,d,h,c){return {bb:[x,x+w,y,y+d,z,z+h],draw:function(){drawBox(x,y,z,w,d,h,c);}};}
+function IF(bb,fn){return {bb:bb,draw:fn};}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function icon(x,y,ok){if(ok===2){ctx.beginPath();ctx.arc(x,y,10,0,7);ctx.fillStyle='#6b5a12';ctx.fill();ctx.strokeStyle='#ffd23f';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#fff';ctx.font='700 13px Malgun Gothic';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('!',x,y+1);return;}
+  ctx.beginPath();ctx.arc(x,y,10,0,7);ctx.fillStyle=ok?'#1f6b3a':'#8a1f1f';ctx.fill();ctx.strokeStyle=ok?'#7fe0a0':'#ff8a8a';ctx.lineWidth=2;ctx.stroke();
+  ctx.strokeStyle='#fff';ctx.lineWidth=2.2;ctx.beginPath();if(ok){ctx.moveTo(x-5,y);ctx.lineTo(x-1,y+4);ctx.lineTo(x+5,y-4);}else{ctx.moveTo(x-4,y-4);ctx.lineTo(x+4,y+4);ctx.moveTo(x+4,y-4);ctx.lineTo(x-4,y+4);}ctx.stroke();}
+function env(x,y,c,sc){sc=sc||1;var w=14*sc,h=10*sc;ctx.fillStyle=c;ctx.fillRect(x-w/2,y-h/2,w,h);ctx.strokeStyle='#1b1d20';ctx.lineWidth=1;ctx.strokeRect(x-w/2,y-h/2,w,h);
+  ctx.beginPath();ctx.moveTo(x-w/2,y-h/2);ctx.lineTo(x,y+1);ctx.lineTo(x+w/2,y-h/2);ctx.stroke();}
+
+// ── 깊이 정렬 ──
+function cmp(a,b){var e=1e-3;
+  if(a[1]<=b[0]+e)return -1;if(b[1]<=a[0]+e)return 1;
+  if(a[3]<=b[2]+e)return -1;if(b[3]<=a[2]+e)return 1;
+  if(a[5]<=b[4]+e)return -1;if(b[5]<=a[4]+e)return 1;
+  return (a[0]+a[2]+a[4])-(b[0]+b[2]+b[4]);}
+function sortItems(items){
+  items.forEach(function(it){var b=it.bb,mx=1e9,Mx=-1e9,my=1e9,My=-1e9;
+    for(var a=0;a<8;a++){var q=P(b[a&1],b[2+((a>>1)&1)],b[4+((a>>2)&1)]);if(q[0]<mx)mx=q[0];if(q[0]>Mx)Mx=q[0];if(q[1]<my)my=q[1];if(q[1]>My)My=q[1];}
+    it.sb=[mx,Mx,my,My];it.dep=[];it.v=0;});
+  for(var i=0;i<items.length;i++)for(var j=i+1;j<items.length;j++){var A=items[i],B=items[j];
+    if(A.sb[1]<=B.sb[0]||B.sb[1]<=A.sb[0]||A.sb[3]<=B.sb[2]||B.sb[3]<=A.sb[2])continue;
+    var r=cmp(A.bb,B.bb);if(r<0)B.dep.push(A);else if(r>0)A.dep.push(B);}
+  var out=[];function visit(it){if(it.v)return;it.v=1;it.dep.forEach(visit);it.v=2;out.push(it);}
+  items.forEach(visit);return out;}
+
+// ── 배치 ──
+var ZONES=[
+  {r:[0,0.4,3,3.4],f:'rgba(255,255,255,0.05)',b:'rgba(255,255,255,0.25)',n:'S050 입고 도크'},
+  {r:[3.3,0.4,2.9,3.4],f:'rgba(79,120,168,0.18)',b:'#4f78a8',n:'S100 자재창고'},
+  {r:[6.2,0.4,2.9,3.4],f:'rgba(79,120,168,0.3)',b:'#4f78a8',n:'S250 공정창고'},
+  {r:[9.4,0.3,6.0,3.9],f:'rgba(242,194,48,0.05)',b:'#f2c230',n:'RW-01 리와인딩'},
+  {r:[15.6,0.2,5.4,2.6],f:'rgba(79,120,168,0.22)',b:'#4f78a8',n:'S300 숙성'},
+  {r:[0.6,5.3,6.6,1.8],f:'rgba(111,180,255,0.07)',b:'rgba(111,180,255,0.5)',n:'MES · 미들웨어'},
+  {r:[13.8,5.3,3.7,1.8],f:'rgba(190,60,60,0.25)',b:'#b44',n:'S500 Holding'},
+  {r:[17.8,5.3,2.6,1.8],f:'rgba(120,40,40,0.32)',b:'#833',n:'S540 폐기'},
+  {r:[0,9.3,3.4,3.2],f:'rgba(255,255,255,0.05)',b:'rgba(255,255,255,0.25)',n:'출하 도크'},
+  {r:[3.7,9.3,3.5,2.6],f:'rgba(79,120,168,0.22)',b:'#4f78a8',n:'S920 출하피킹'},
+  {r:[7.5,9.3,3.6,2.6],f:'rgba(79,120,168,0.22)',b:'#4f78a8',n:'S400 완제품'},
+  {r:[11.3,9.0,8.5,3.3],f:'rgba(242,194,48,0.05)',b:'#f2c230',n:'CUT-01 커팅 · 포장'},
+  {r:[11.4,9.1,1.6,3.0],f:'rgba(79,120,168,0.16)',b:'rgba(143,180,224,0.7)',n:''}];
+var CODE={CT_SIDE:'S300',TRUCK_IN:'물류 트럭',DOCK_IN:'S050',S100:'S100',S250:'S250',RW:'PP_RW',RW_OUT:'PP_RW',S300:'S300',CT:'PP_CT',PACKWAIT:'PP_CT',PACKOUT:'PP_CT',S400:'S400',S920:'S920',TRUCK_OUT:'출하',S500:'S500',S540:'S540'};
+var INVROWS=[['S100','자재창고'],['S250','공정창고'],['PP_RW','리와인딩'],['S300','반제품 · 숙성'],['PP_CT','커팅 · 포장 대기'],['S500','Holding'],['S540','폐기'],['S400','완제품'],['S920','출하피킹'],['출하','출하 완료']];
+var SL={TRUCK_IN:[[-2,1.8,0.7]],DOCK_IN:[[1.5,2,0]],S100:[[4.75,2,0],[4.75,3.3,0]],S250:[[7.1,2,0],[8.3,2,0]],RW:[[9.9,3.3,0]],RW_OUT:[[14.6,3.4,0.4]],
+  S300:[[16.6,1.5,0.33],[17.6,1.5,0.33],[19.0,1.5,0.33],[20.0,1.5,0.33]],CT:[[14.9,10.3,0.9],[15.8,10.3,0.9]],
+  PACKWAIT:[[17.5,10.0,0.8],[18.6,10.0,0.8],[17.5,10.65,0.8],[18.6,10.65,0.8]],PACKOUT:[[18.6,11.7,0]],CT_SIDE:[[12.2,9.85,0.4],[12.2,11.25,0.4]],
+  S400:[[8.2,10.5,0],[9.2,10.5,0],[10.2,10.5,0]],S920:[[4.4,10.5,0],[5.4,10.5,0],[6.4,10.5,0]],
+  TRUCK_OUT:[[-2.6,10.1,0.7],[-1.6,10.1,0.7],[-2.1,10.9,0.7]],S500:[[14.6,6.1,0],[15.6,6.1,0],[16.6,6.1,0]],S540:[[18.4,5.9,0],[19.6,5.9,0],[18.4,6.7,0],[19.6,6.7,0]]};
+var BACK={TRUCK_IN:1,DOCK_IN:1,S100:1,S250:1,RW:1,RW_OUT:1,S300:1};
+var LOCPT={S100:[4.7,2,1.8],S250:[7.7,2,1.8],RW:[12.2,1.6,3.0],S300:[18.2,1.5,3.6],CT:[15,10.3,3.6],CT_SIDE:[12.2,10.5,1.4],S400:[9.2,10.5,1.4],S920:[5.4,10.5,1.4],
+  TRUCK_OUT:[-2.1,10.4,2.2],S500:[15.6,6.1,1.2],S540:[18.8,6.1,1.2],BOARD:[4.4,6.2,1.1],QUEUE:[1.9,6.2,1.1],SAP:[-2.6,5.9,1.1]};
+var WK={W_MAT:[2.9,4.4],W_RW:[12.4,3.4],W_CT:[15.0,11.9],W_SH:[6.6,8.6],W_QC:[17.6,7.7]};
+// 서버 랙: [x, y, 색, 이름, 설명]
+var RACKS=[[-3.1,5.4,['#2e4f78','#223c5c','#1a2f49'],'SAP','가상 · 외부 시스템'],
+  [1.4,5.7,['#4f6a5a','#3b5246','#2f4238'],'미들웨어','외부 I/F 서버 · EIS / EIF 전달'],
+  [3.9,5.7,['#5f6873','#4a525c','#3c434c'],'MES 서버','EIS 기록 · I/F 배치 서버']];
+var PPCS=[[2.7,3.3,'입고 PPC',1],[11.6,3.0,'RW-01 PPC'],[16.4,11.7,'CUT-01 PPC'],[7.0,9.45,'출하피킹 PPC',1]];
+var PR={P_RW:[14.2,0.7],P_CT:[19.2,10.95]};
+var TH={ckd:1.2,roll:0.75,cut:0.6,fa:0.35,box:0.65};
+var PROD={FG:'PUPAD-A',SF:'PUPAD-A-SF',CKD:'CKD-PU-01',CKD_X:'CKD-PU-99'};
+function prodOf(l){return l.kind==='box'?PROD.FG:l.kind==='ckd'?(l.id==='CKD-099'?PROD.CKD_X:PROD.CKD):PROD.SF;}
+var KIND={ckd:'CKD 원단 (12롤 묶음)',roll:'반제품 롤',cut:'커팅품 (포장 대기)',fa:'초품 샘플',box:'완제품 박스'};
+
+// ── V2 협의 포인트 · 문의 (V2 html 기준, 2026-10-30) ──
+var NEG={A1:["협의 필요","공정 코드 신규 등록 PP_RW / PP_CT"],A2:["협의 필요","기존 I/F의 PU-PAD 분기 기준"],A3:["협의 필요","품번 · BOM 등록 주체 · 시기"],A4:["가정 적용","CKD 1 LOT = QTY 12"],A6:["협의 필요","라벨 양식 · 프린터, 복수 LOT 표기"],
+  B1:["협의 필요","작업지시 생성 주체 · 공정별 분리"],B2:["확인 필요","EIF → MES 배치 호출 주체 · 주기"],B3:["협의 필요","SAP I/F에 부족한 필드 추가"],C1:["협의됨","입고 · 불출 기존 로직 S050 → S100 → S250"],C2:["협의 필요","투입 후 남은 CKD 처리"],
+  D1:["협의됨","완료 라벨 최초 정상 스캔 시 +1 ROLL"],D2:["협의 필요","CKD 차감 = 완료 라벨 스캔 시 −1"],D3:["가정 적용","CKD 품번 BOM 불일치 에러"],D4:["협의 필요","CKD 투입 취소"],D6:["협의 필요","출력 후 스캔 전 롤의 분실 · 재출력"],
+  E1:["협의 필요","숙성 시작점 · 시간 · 품번별 · 휴일"],E2:["협의 필요","숙성실 = S300? 별도 위치?"],F1:["협의 필요","FIFO 기준 · 위반 · 예외 승인"],F2:["협의 필요","다중 롤 동시 투입"],F3:["협의 필요","롤 종료와 이론 잔량 차이 처리"],F4:["협의 필요","롤 투입 취소"],F6:["가정 적용","롤 품번 BOM 불일치 에러"],
+  G1:["협의 필요","L/M/R 검사항목 · 규격 양식"],G2:["협의 필요","초품 생산 신호 (PLC 없음)"],G3:["협의 필요","롤 교체마다 초품 · 연속 NG 한도"],G4:["협의 필요","품질 판정 입력 주체 MES / QMS, 수신 경로"],G5:["협의됨","초품 NG 후 S500 → 재투입 화면 수동 해제"],G6:["확인 필요","'기존 초품 저장 서비스'의 정체"],
+  H1:["협의됨","불량은 롤 귀속, 양품 실적 불변"],H2:["가정 적용","불량 SPLIT, 1건 = LOT 1개"],H3:["협의 필요","불량 SAP I/F = SAP MNQ인지"],H4:["협의 필요","Repair(S530) 사용 여부"],D5:["협의 필요","리와인딩 불량 단위 · 등록 방식"],N2:["협의 필요","불량 LOT 품번 · 단위"],H5:["협의 필요","리워크 (불량 LOT 단위 판정)"],I1:["협의됨","300EA 키인 + LOT 배분, 확정 시 +300"],I2:["가정 적용","숙성 미달 배분 불가, FIFO 추천"],I3:["가정 적용","박스 = 완제품 LOT + LOADING_BOX_*"],
+  I4:["협의 필요","300 고정, 마지막 박스, WO 마감"],I5:["협의 필요","품질 대기 롤 포함 박스 → S500"],I6:["협의 필요","박스 포장 PDA 사용 여부"],K1:["협의됨","기존 출하 로직 · PDA 그대로"],K3:["협의 필요","창고 공유 · S920(1040) 이동"],K4:["협의 필요","팔레트 단위 출하 여부"],K5:["협의 필요","EIS_SD_DLV_*가 전동화 목록과 섞임"],
+  L1:["협의 필요","생산 실적 송신 단위 · 리와인딩 실적 송신 여부"],L2:["협의 필요","CKD 투입 · 소비의 SAP 보고 방식"],L3:["협의 필요","창고 이동마다 SAP 이동 I/F"],L4:["협의 필요","초품 결과 송신 여부"],
+  N1:["협의 필요","롤 기대 생산수량을 품목 코드로 관리"],N3:["협의 필요","롤 완료 후 잔여 커팅품 EA 관리 위치"],N4:["협의 필요","초품 샘플 LOT (SF-001-F01) → S500"],N5:["협의 필요","양품 판정 커팅품 재투입 위치"],N6:["협의 필요","품질 판정 전 [롤 생산 완료] 허용 여부"]};
+var NEGACT={ifRecv:["A2","A3","B1","B3"],dlvOrder:["C1"],arrive:["C1","A4"],ckdIn:["C1","A4"],issue:["C1","L3"],rwInput:["D3","C2","D4","L2"],rwDone:["A6","D6","N1"],rwScan:["D1","D2","E1","L1","L3"],
+  timePass:["E1","E2"],ctInput:["F1","F2","F4","F6","I2"],ctFA:["G1","G2","G3","G6","L4","N4"],ctRollEnd:["F3","N3","N6"],qcJudge:["G4","H3"],rwDefect:["D5","H1","H2","H3","N2"],ctDefect:["H1","H2","H3","N2"],scrap:["H4"],reinput:["G5","N5","H5"],
+  pack:["I1","I3","K4","I4","I6","L1"],shipOrder:["K1"],toShip:["K3","L3"],pick:["K1","K4"],shipConfirm:["K5","I4"],collect:["L1"]};
+// 문의사항 V2.0 (G: Drive 문의사항_V.2.0.xlsx '문의사항 통합', 2026-11-02). [항목, 회신 내용 또는 0]
+var INQ={"Q-01": ["숙성 기준 (시작점 · 시간 · 품번별)", 0], "Q-02": ["FIFO 기준 · 예외 승인", 0], "Q-03": ["초품검사 양식 · 트리거 · 품질 NG 후 생산 · 포장 박스 처리", 0], "Q-04": ["품질판정 입력 · QMS I/F 대상", 0], "Q-05": ["작업지시 생성 주체", "작업지시 · 지시수량 BOM I/F 수신"], "Q-06": ["품번 · BOM 등록", "BOM I/F 수신"], "Q-07": ["라벨 양식 · 프린터", 0], "Q-08": ["하드웨어 준비", 0], "Q-09": ["검토서 누락 장", 0], "Q-10": ["'리와인딩 기존 화면 유지' 대상", 0], "Q-11": ["이벤트 · 휴일 · 생산 일정", 0], "Q-12": ["리와인딩 투입 FIFO 여부 (불출 때 체크?)", 0], "Q-13": ["공정 조건 정의", 0], "Q-14": ["금형 관리", 0], "Q-15": ["재투입 프로세스", 0], "Q-16": ["리워크 조건 · 과정", 0], "Q-17": ["바코드 정의 (1D/2D · 데이터)", 0], "Q-18": ["리와인딩 '현재 STOCK' 의미", 0], "Q-19": ["'완료 · 라벨 출력'과 '라벨 스캔'의 차이", 0], "Q-20": ["리와인딩 초품 팝업 여부", 0], "Q-21": ["롤 초품 불량 시 진행 / 중지, 판정 대기 중 생산", 0], "Q-22": ["숙성 후 보관 창고 · 커팅 불출 대상 여부", 0], "Q-23": ["투입 · 투입 취소 · 재투입 조건", 0], "Q-24": ["초품 OK여도 품질 요청?", 0], "Q-25": ["LOT 생성 · 관리 규칙", 0], "Q-26": ["커팅 후 라벨 자동 / 수기 출력", 0], "Q-27": ["300개 박스 라벨 · 끝수", 0], "Q-28": ["박스 · 팔레트 고객사 라벨, 팔레트 라벨 범위", 0], "Q-29": ["박스 포장 후 SAP I/F", 0], "Q-30": ["테이블 구분 (재사용 / 신규)", 0], "Q-31": ["PDA 처리 방식", 0], "Q-32": ["폐기 처리 기능 필요 여부", 0], "Q-33": ["커팅 실적 기준 불일치", 0], "Q-34": ["출하 보류 해제 · 최종 NG 박스 처리", 0], "Q-35": ["DEFECT 팝업 불량 라벨 출력 · 양식", 0], "Q-36": ["불량 단위 · 유형 · 사유 코드", 0], "Q-37": ["CKD 사용량 · 잔량 차감 시점", 0], "Q-38": ["I/F 명세서", 0], "Q-39": ["입고 단위 1 LOT = 12 ROLL? · 불량 SPLIT", 0], "Q-40": ["박스 적입 시 1 ROLL 기대수량 · 가용수량", 0], "Q-41": ["초품 팝업 조건 (설비 연동 없음)", 0], "Q-42": ["반제품 / 완제품 이동 단위 (팔레트 없이 ROLL · BOX?)", 0], "Q-43": ["초품 QMS 불량 판정 시 롤 처리 (커팅 중 롤 · 남은 커팅품 · 박스)", 0]};
+var ACTQ={ifRecv:["Q-05","Q-06"],dlvOrder:["Q-38"],arrive:["Q-39"],ckdIn:["Q-39"],shipOrder:["Q-29"],rwInput:["Q-12","Q-37"],rwDone:["Q-19","Q-07"],rwScan:["Q-19","Q-37","Q-42"],timePass:["Q-01","Q-22"],ctInput:["Q-02","Q-23"],
+  ctFA:["Q-03","Q-24","Q-41","Q-43"],qcJudge:["Q-04","Q-43"],rwDefect:["Q-36","Q-39"],ctDefect:["Q-35","Q-36"],scrap:["Q-32","Q-34"],reinput:["Q-15","Q-34"],ctRollEnd:["Q-21","Q-40"],pack:["Q-42","Q-28","Q-27","Q-29","Q-33"],toShip:["Q-34"],collect:["Q-29","Q-38"]};
+
+// ── 상태 ──
+var ST,simT=0,hoverLot=null,selLot=null,tagRects=[];
+function reset(){ST={dlv:null,so:null,wo:null,truckIn:null,lots:{},order:0,queue:[],sap:{rx:0,tx:0},now:0,board:'',run:null,clk:null,fx:[],lines:[],touched:{},fail:null,step:0};}
+function L(id){return ST.lots[id];}
+function live(){return Object.keys(ST.lots).map(L).filter(function(l){return l.st!=='END';});}
+function atLoc(loc){return live().filter(function(l){return l.loc===loc;}).sort(function(a,b){return a.ord-b.ord;});}
+function slotPos(l){var arr=atLoc(l.loc),i=arr.indexOf(l),sl=SL[l.loc]||[[0,0,0]],b=sl[Math.min(i,sl.length-1)],ex=Math.max(0,i-sl.length+1)*0.35,tx=l.loc==='TRUCK_IN'?(truckOff()||0):0;return {x:b[0]+ex+tx,y:b[1]+ex,z:b[2]};}
+function posOf(l){var a=l.anim;if(a){var f=(simT-a.t0)/a.dur;if(f>=1){l.anim=null;}else{f=f<0?0:f;f=f*f*(3-2*f);return along(a.path,a.len*f);}}return slotPos(l);}
+function along(p,d){for(var i=0;i<p.length-1;i++){var a=p[i],b=p[i+1],sg=Math.hypot(b.x-a.x,b.y-a.y,b.z-a.z);if(d<=sg||i===p.length-2){var t=sg?Math.min(1,d/sg):1;return {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t};}d-=sg;}return p[p.length-1];}
+function plen(p){var n=0;for(var i=0;i<p.length-1;i++)n+=Math.hypot(p[i+1].x-p[i].x,p[i+1].y-p[i].y,p[i+1].z-p[i].z);return n;}
+function route(a,b,fl,tl){if(Math.hypot(a.x-b.x,a.y-b.y)<3.2)return [a,b];
+  var a1=BACK[fl]?4.6:8.6,a2=BACK[tl]?4.6:8.6,pts=[a,{x:a.x,y:a1,z:a.z*0.5}];
+  if(a1!==a2){var cx=(a.x+b.x)/2>10?21.2:0.4;pts.push({x:cx,y:a1,z:0},{x:cx,y:a2,z:0});}
+  pts.push({x:b.x,y:a2,z:b.z*0.5},b);return pts;}
+function hm(m){m=Math.round(m);return Math.floor(m/60)+':'+('0'+(m%60)).slice(-2);}
+function fmtNow(){var d=new Date(new Date(2026,10,2,8,0).getTime()+ST.now*60000);return (d.getMonth()+1)+'/'+('0'+d.getDate()).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+function stLabel(l){if(l.st==='AGING'){var r=l.due-ST.now;return r>0?'숙성 중 · '+hm(r)+' 남음':'숙성 완료';}
+  return {WAIT:'대기',PROC:'공정 중',PEND:'스캔 대기 (실적 미확정)',QWAIT:'품질 대기',OK:'양품 판정',HOLD:'보류',DEFECT:'불량 · 판정 대기',NG:'불량 판정',SCRAP:'폐기',PICK:'피킹',SHIP:'출하'}[l.st]||l.st;}
+function stColor(l){if(l.st==='AGING')return l.due-ST.now>0?'#ff8a1f':'#46c46e';
+  return {WAIT:'#9aa1aa',PROC:'#4ea1ff',PEND:'#b58cff',QWAIT:'#ffd23f',OK:'#46c46e',HOLD:'#ff5a5a',DEFECT:'#ff5a5a',NG:'#ff5a5a',SCRAP:'#6a7079',PICK:'#4ea1ff',SHIP:'#b58cff'}[l.st]||'#9aa1aa';}
+function touch(id){ST.touched[id]=1;}
+function ln(sec,ic,t,lot){ST.lines.push({sec:sec,ic:ic,t:t,lot:lot});if(lot&&L(lot))L(lot).hist.push((ST.step+1)+'. '+t);}
+function tb(t){ST.lines.push({sec:'tbl',t:t});}
+function fx(o){o.t0=o.t0==null?simT:o.t0;ST.fx.push(o);return o;}
+function lotPt(id){var l=L(id);if(!l)return [0,0];var p=posOf(l);return P(p.x,p.y,p.z+TH[l.kind]+0.1);}
+function anyPt(k){if(LOCPT[k]){var a=LOCPT[k];return P(a[0],a[1],a[2]);}return lotPt(k);}
+
+// ── op 규약: 한 op = 3D 연출 1개 + 패널 줄 1개 + (테이블 변경) ──
+var OPS={
+  create:function(a){var o=a[1],l={id:o.id,kind:o.kind,qty:o.qty,unit:o.unit,st:o.st,hist:[],lblAt:o.kind==='ckd'?-1e9:null};ST.lots[o.id]=l;l.loc=o.loc;l.ord=++ST.order;touch(l.id);
+    ln('lot','🏷',o.id+' 생성 · '+prodOf(l)+' · '+o.qty+' '+o.unit+(o.note?' · '+o.note:''),o.id);tb('LOT_STS 추가 '+o.id+' · LOT_HIS 추가 (CREATE)');return 500;},
+  move:function(a,an){var l=L(a[1]),from=l.loc,to=a[2],p0=posOf(l);l.loc=to;l.ord=++ST.order;touch(l.id);var fc=CODE[from],tc=CODE[to],d=0;
+    if(an){var p1=slotPos(l),pth=route(p0,p1,from,to),n=plen(pth);d=Math.max(700,n*120);l.anim={path:pth,len:n,t0:simT,dur:d};}
+    if(fc!==tc){ln('lot','📦',l.id+'  '+fc+' → '+tc+(a[3]?' · '+a[3]:''),l.id);tb('LOT_STS.OPERATION_CODE '+fc+' → '+tc+' · LOT_HIS 추가');}
+    return d+150;},
+  status:function(a){var l=L(a[1]);l.st=a[2];touch(l.id);if(!a[3])ln('lot','🏷',l.id+' 상태 → '+stLabel(l),l.id);tb('LOT_STS.LOT_STATUS '+l.id);return 350;},
+  qty:function(a){var l=L(a[1]),o=l.qty;l.qty=a[2];if(a[2]===0)l.st='END';touch(l.id);ln('lot','🏷',l.id+'  '+o+' → '+a[2]+' '+l.unit+(a[3]?' · '+a[3]:''),l.id);tb('LOT_STS.QTY 차감 '+l.id+' · LOT_HIS (CONSUME)');return 450;},
+  morph:function(a){var l=L(a[1]),o=l.qty+' '+l.unit;l.kind=a[2];l.qty=a[3];l.unit=a[4];touch(l.id);ln('lot','🏷',l.id+'  '+o+' → 0 ROLL · 커팅품 '+a[3]+' '+a[4]+' (QTY_2)',l.id);tb('LOT_STS '+l.id+' QTY_1 0 · QTY_2 '+a[3]+' · MATERIAL_INPUT_STS 삭제 (투입 해제)');return 500;},
+  aging:function(a){var l=L(a[1]);l.st='AGING';l.due=ST.now+48*60;touch(l.id);ln('lot','⏱',l.id+' 숙성 완료 예정 = 스캔 + 48h',l.id);tb('LOT_STS.LOT_UDF_? (숙성 완료 예정)');return 300;},
+  scan:function(a,an){touch(a[2]);ln('res','🔍',a[2]+' 스캔 · '+a[3],a[2]);if(an){fx({k:'beam',w:a[1],id:a[2],dur:800});fx({k:'icon',id:a[2],ok:1,dur:1600,t0:simT+700});}return 1100;},
+  print:function(a,an){touch(a[2]);L(a[2]).lblAt=an?simT+900:-1e9;ln('lot','🖨',a[2]+' 라벨 출력',a[2]);if(an)fx({k:'label',p:a[1],id:a[2],dur:900});return 1000;},
+  gene:function(a,an){ln('lot','🔗',a[1]+' → '+a[2]+(a[3]?' · '+a[3]:''),a[2]);tb('LOT_MATERIAL_HIS 추가 '+a[1]+' → '+a[2]);if(an)fx({k:'gene',a:a[1],b:a[2],dur:2600});return 600;},
+  ifOut:function(a,an){var lab=a[1];ln('if','↑','MES → SAP 송신 · '+lab);tb((a[3]||'EIS_*')+' 추가 (STATUS N) → 배치 · 미들웨어 전달 (Y)');
+    if(!an){ST.sap.tx++;return 0;}
+    fx({k:'pkt',from:a[2],to:'BOARD',col:'#ff8a1f',dur:500,arrive:function(){fx({k:'pkt',from:'BOARD',to:'QUEUE',col:'#ff8a1f',dur:450,arrive:function(){fx({k:'pkt',from:'QUEUE',to:'SAP',col:'#ff8a1f',dur:600,arrive:function(){ST.sap.tx++;ui();}});}});}});return 1700;},
+  ifIn:function(a,an){ST.sap.rx++;ln('if','↓','SAP → MES 수신 · '+a[1]);tb((a[3]||'EIF_*')+' 수신 → MES 반영');if(an)fx({k:'pkt',from:'SAP',to:'QUEUE',col:'#4ea1ff',dur:450,arrive:function(){fx({k:'pkt',from:'QUEUE',to:'BOARD',col:'#4ea1ff',dur:450,arrive:function(){if(a[2]!=='BOARD')fx({k:'pkt',from:'BOARD',to:a[2],col:'#4ea1ff',dur:600});}});}});return 1650;},
+  truck:function(a,an){ST.truckIn={t0:an?simT:-1e9,dur:a[1]};ln('lot','🚚',a[2]);return an?60:0;},
+  wait:function(a,an){return an?a[1]:0;},
+  // 작업지시: 공정별 계획 / 실적 (WORK_ORDER_OPER_STS)
+  woInit:function(){ST.wo={id:'WO-001',RW:{plan:2,done:0,unit:'ROLL',eq:'RW-01'},CT:{plan:900,done:0,unit:'EA',eq:'CUT-01'}};
+    ln('res','📋','작업지시 WO-001 · RW 2 ROLL / CT 900 EA 배정');tb('WORK_ORDER_STS · WORK_ORDER_OPER_STS (PP_RW, PP_CT) 추가');return 300;},
+  wo:function(a){var o=ST.wo[a[1]];o.done+=a[2];ln('res','📋','작업지시 '+o.eq+' 실적 '+o.done+' / '+o.plan+' '+o.unit);tb('WORK_ORDER_OPER_STS.ACTUAL_QTY +'+a[2]);return 300;},
+  // 출하지시: 계획 / 피킹 / 출하 (SHIP_ORDER_STS · DETAIL · PICKING)
+  soInit:function(a){ST.so={id:'SO-001',plan:a[1],pick:0,ship:false};ln('res','🚚','출하지시 SO-001 · '+a[1]+' EA 등록');tb('SHIP_ORDER_STS · SHIP_ORDER_DETAIL_STS 추가');return 300;},
+  soPick:function(a){ST.so.pick+=a[1];ln('res','🚚','출하지시 피킹 '+ST.so.pick+' / '+ST.so.plan+' EA');tb('SHIP_ORDER_PICKING_STS 추가 · DETAIL 잔량 차감');return 300;},
+  soShip:function(){ST.so.ship=true;ln('res','🚚','출하지시 SO-001 출하 완료');tb('SHIP_ORDER_STS.SHIP_STATUS = SHIP');return 300;},
+  // 입고지시(납품지시): DELIVERY_ORDER_MST/DTL → 입하(PDA) → 입고
+  dlvInit:function(){ST.dlv={id:'DO-001',item:'CKD-PU-01',plan:12,unit:'ROLL',st:0};ln('res','📥','입고지시 DO-001 · CKD-PU-01 12 ROLL 등록');tb('DELIVERY_ORDER_MST / DTL · DELIVERY_PALLET / LOT 추가');return 300;},
+  dlvArrive:function(){ST.dlv.st=1;ln('res','📥','DO-001 입하 완료 (PDA)');tb('DELIVERY_LOT 입하 표시 (ARRIVE)');return 300;},
+  dlvRecv:function(){ST.dlv.st=2;ln('res','📥','DO-001 입고 완료 → S100');tb('DELIVERY_LOT 입고 · LOT_STS STOCK_IN (S100)');return 300;},
+  note:function(a){ln('res','📌',a[1]);return 300;},
+  noIf:function(a){ln('if','—',a[1]);return 300;},
+  board:function(a){ST.board=a[1];ln('res','📋',a[1]);return 300;},
+  run:function(a,an){if(an)ST.run={eq:a[1],t0:simT,dur:a[2]};ln('res','⚙',a[3]);return an?a[2]:0;},
+  clock:function(a,an){ln('res','⏱','가상 시계 +'+(a[1]/60)+'h');if(an){ST.clk={from:ST.now,to:ST.now+a[1],t0:simT,dur:2200};return 2400;}ST.now+=a[1];return 0;},
+  clockTo:function(a,an){var to=L(a[1]).due+a[2],m=to-ST.now;ln('res','⏱','가상 시계 +'+hm(m)+' (숙성 완료 '+(-a[2])+'분 전)');if(an){ST.clk={from:ST.now,to:to,t0:simT,dur:2200};return 2400;}ST.now=to;return 0;},
+  collect:function(a,an){var q=ST.queue.slice();ST.queue=[];ln('if','↑','송신 대기 '+q.length+'건 수거 → SAP · STATUS N → Y');tb('EIS_* '+q.length+'건 STATUS N → Y');
+    if(!an){ST.sap.tx+=q.length;return 0;}
+    q.forEach(function(lab,i){fx({k:'pkt',from:'QUEUE',to:'SAP',col:'#ff8a1f',dur:900,t0:simT+300+i*220,arrive:function(){ST.sap.tx++;}});});return 300+q.length*220+1100;},
+  // 에러: 상태 변경 없음. 3D는 빔 + ✕만, 내용은 패널 ② 결과
+  fail:function(a,an){var f={who:a[1],at:a[2],code:a[3],msg:typeof a[4]==='function'?a[4]():a[4],rule:a[5],negs:a[6]||[],qs:a[7]||[],info:a[8]==='info'};ST.fail=f;if(L(a[2]))touch(a[2]);
+    tb(f.info?'변경 없음 (실적 추가 없음)':'변경 없음 (트랜잭션 롤백)');if(an){if(f.who)fx({k:'beam',w:f.who,id:f.at,dur:800,ng:1});fx({k:'icon',id:f.at,ok:f.info?2:0,dur:1e9,t0:simT+(f.who?700:0)});}return 1600;}
+};
+
+// ── 케이스 ──
+var PH=['수신','입고 · 불출','리와인딩','숙성','커팅 · 품질','포장','출하'];
+// ── 케이스 공통 조각 (전동화 방식: 불량 등록 = MNQ + 311(→5000) 송신 / QMS 판정 수신 = 배치가 지정 창고로 자동 이동 · 311 송신 없음) ──
+var BOXNOTE=['note','박스 단위 입고 · 적입 확정 = 실적 → 즉시 S400 (파레트 단위 여부 K4 · Q-28 협의 필요)'];
+var FANOTE=['note','초품 팝업 [OK] 선택 → 샘플 S500 QMS 대기 · CUT-01 커팅은 계속 진행'];
+function packBox(id,gens,qtys,who,t){var ops=[['create',{id:id,kind:'box',qty:300,unit:'EA',loc:'PACKOUT',st:'WAIT'}]];
+  gens.forEach(function(g){ops.push(['gene',g[0],id,g[1]]);});qtys.forEach(function(q){ops.push(['qty',q[0],q[1],q[2]]);});
+  return {ph:5,a:'pack',t:t||('박스 적입 = 실적 → S400 ('+id+')'),who:who,tick:40,ops:ops.concat([['print','P_CT',id],['note','수량 이동 완료 → 박스 라벨 출력 · 부착'],
+    ['move',id,'S400','완제품 입고'],BOXNOTE,['wo','CT',300],['ifOut','CT 생산 실적 300 EA · 작성 서비스 미확인 (L1)',id,'EIS_PP_PC_WORK_RST']])};}
+// 초품 OK: 샘플 3 EA만 S500, 롤은 계속 커팅
+function faOK(roll,t,who){var f=roll+'-F01';return {ph:4,a:'ctFA',t:t||('초품 팝업 OK → 샘플만 QMS ('+roll+')'),who:who||'작업자 · 초품 3개(L / M / R) 육안 OK → [저장 · 품질 요청]',tick:15,ops:[
+  ['create',{id:f,kind:'fa',qty:3,unit:'EA',loc:'CT',st:'WAIT',note:'초품 샘플 SPLIT'}],['gene',roll,f,'3 EA'],
+  ['move',f,'S500','QMS 판정 대기 (샘플만)'],['status',f,'QWAIT'],FANOTE,['ifOut','초품 결과 OK · TranFMLInspectionData (송신 여부 L4)',roll,'EIS_MNQ_FML_INSPECT_H']]};}
+// QMS 판정 수신: [LOT, 'OK'|'NG', 유형(Z31 초중종 · Z33 부적합), 지정 창고(없으면 이동 없음)]
+function judge(list,t,extra){var ops=[];list.forEach(function(j){
+    ops.push(['ifIn','QMS 판정 '+(j[1]==='OK'?'양품':'불량')+' · '+j[0]+' ('+j[2]+') · InterfaceQmsInspectResult',j[0],'EIR_QM_INSPECT_RESULT'],['status',j[0],j[1]==='OK'?'OK':'NG']);
+    if(j[3])ops.push(['move',j[0],j[3],'QMS 지정 창고 자동 이동 (SAP는 이미 이동 · 311 송신 없음)']);
+    else if(j[1]==='OK'&&j[2]==='Z31')ops.push(['note','초품 양품 판정 → 샘플 재투입 대상 (검토서: [저장 · 품질 요청])']);});
+  return {ph:4,a:'qcJudge',t:t,who:'배치(InterfaceQmsInspectResult)가 QMS 판정 수신 → 지정 창고로 자동 이동 (재투입 화면 없음 · G5 재협의)',tick:30,ops:ops.concat(extra||[])};}
+// 불량 등록 (DefectLot): S500 이동 + SAP 불량 등록(MNQ) + 창고 이동 311(→5000)
+// 판정 받은 초품 샘플 재투입 → 포장 대기 (다음 박스에 사용)
+function reinputFA(ids){var ops=[];ids.forEach(function(f){ops.push(['move',f,'PACKWAIT','재투입 (판정 양품)'],['status',f,'WAIT',1]);});
+  return {ph:4,a:'reinput',t:'초품 샘플 재투입 → 포장 대기',who:'품질 담당 · 판정 받은 샘플 재투입 → 다음 박스에 사용',tick:5,ops:ops.concat([['note','판정 후 창고 이동 I/F 없음 (SAP는 QMS 판정 시 처리)']])};}
+function defectOps(id,from){return [['move',id,'S500','불량 등록 → Holding'],
+  ['ifOut','불량 등록 '+id+' · SAPIFMNQ004',id,'EIS_MNQ_PROD_DEFECT'],['ifOut','창고 이동 '+from+' → S500(5000) · '+id+' · SAPIFMM027',id,'EIS_MM_STOCK_MOVE_H/D']];}
+
+// ── TC01 기본 흐름 ──
+var DOCK=[
+ {ph:1,a:'dlvOrder',t:'입고지시 (납품지시) 등록',who:'납품지시 DO-001 등록 · CKD-PU-01 12 ROLL (생성 경로 확인 필요)',tick:10,ops:[
+   ['dlvInit'],['noIf','납품지시 생성 경로 미확인 (SAP I/F인지 확인 필요)']]},
+ {ph:1,a:'arrive',t:'물류 도착 → PDA 입하',who:'공급사 물류 트럭 도착 → 자재 담당이 PDA로 납품 바코드 스캔 (ArriveDeliveryOrderLot)',tick:30,ops:[
+   ['truck',1800,'물류 트럭 도착 · DO-001 납품'],['create',{id:'CKD-001',kind:'ckd',qty:12,unit:'ROLL',loc:'TRUCK_IN',st:'WAIT',note:'1 LOT = 12 ROLL · 납품 라벨'}],['wait',1300],
+   ['move','CKD-001','DOCK_IN','하차'],['scan','W_MAT','CKD-001','납품 바코드 ✓ · 지시 품목 ✓'],['dlvArrive']]},
+ {ph:1,a:'ckdIn',t:'입고 (S050 → S100)',who:'자재 담당 · 입고 처리 (ReceiveDeliveryLot) → 품목 기본 창고 S100',tick:10,ops:[
+   ['move','CKD-001','S100','입고'],['dlvRecv'],['ifOut','입고 실적 CKD-PU-01 12 ROLL · ReceiveDeliveryLot','CKD-001','EIS_MM_MATL_RCV_RST_H/D']]}];
+var TC01=[
+ {ph:0,a:'ifRecv',t:'작업지시 수신',who:'SAP(가상) 작업지시 → 배치가 MES 작업지시로 반영',ops:[
+   ['ifIn','작업지시 WO-001 · 900 EA','BOARD','EIF_WORK_ORDER_MST / OPER / BOM'],['board','WO-001 · PU-PAD 900 EA'],['woInit']]}].concat(DOCK,[
+ {ph:1,a:'issue',t:'불출 (S100 → S250)',who:'자재 담당 · PDA 불출 (UpdateINVInventoryMove PROC 9)',tick:20,ops:[
+   ['move','CKD-001','S250','불출'],['ifOut','창고 이동 S100(3000) → S250(2000) · CKD-001 12 ROLL · UpdateINVInventoryMove','CKD-001','EIS_MM_STOCK_MOVE_H/D']]},
+ {ph:2,a:'rwInput',t:'리와인딩 투입 스캔',who:'작업자 · RW-01 화면 + 스캐너',tick:10,ops:[
+   ['scan','W_RW','CKD-001','BOM ✓ · S250 위치 ✓ · 잔량 12 ✓'],['move','CKD-001','RW'],['status','CKD-001','PROC'],['noIf','I/F 없음 · CKD 소비 보고 방식 미정 (L2)']]},
+ {ph:2,a:'rwDone',t:'롤 완료 · 라벨 출력 (SF-001)',who:'작업자 · [완료 · 라벨 출력] → 라벨 부착',tick:50,ops:[
+   ['run','RW',2400,'RW-01 리와인딩 1 ROLL'],['create',{id:'SF-001',kind:'roll',qty:1,unit:'ROLL',loc:'RW_OUT',st:'PEND',note:'실적 미확정'}],['print','P_RW','SF-001']]},
+ {ph:2,a:'rwScan',t:'완료 라벨 스캔 → 실적 확정 (SF-001)',who:'작업자 · 완료 라벨 스캔',tick:2,ops:[
+   ['scan','W_RW','SF-001','실적 +1 ROLL'],['gene','CKD-001','SF-001','1 ROLL'],['qty','CKD-001',11,'CKD 1롤 차감'],
+   ['aging','SF-001'],['move','SF-001','S300','숙성 입고'],['wo','RW',1],['ifOut','RW 생산 실적 1 ROLL · 작성 서비스 미확인 (L1)','SF-001','EIS_PP_PC_WORK_RST']]},
+ {ph:2,a:'rwScan',t:'SF-002 리와인딩 · 스캔',who:'같은 순서로 두 번째 롤',tick:52,ops:[
+   ['run','RW',1800,'RW-01 리와인딩 1 ROLL'],['create',{id:'SF-002',kind:'roll',qty:1,unit:'ROLL',loc:'RW_OUT',st:'PEND'}],['print','P_RW','SF-002'],
+   ['scan','W_RW','SF-002','실적 +1 ROLL'],['gene','CKD-001','SF-002','1 ROLL'],['qty','CKD-001',10,'CKD 1롤 차감'],
+   ['aging','SF-002'],['move','SF-002','S300','숙성 입고'],['wo','RW',1],['ifOut','RW 생산 실적 1 ROLL · 작성 서비스 미확인 (L1)','SF-002','EIS_PP_PC_WORK_RST']]},
+ {ph:3,a:'timePass',t:'숙성 48시간',who:'숙성실(S300)에서 대기',ops:[['clock',48*60],['noIf','I/F 없음 · 창고 이동 없음 (E1 · E2)']]},
+ {ph:4,a:'ctInput',t:'숙성실에서 롤 꺼내 오기',who:'작업자 · 숙성실(S300)에서 숙성 끝난 롤을 커팅기 옆 대차로 (스캔 전)',tick:10,ops:[
+   ['move','SF-001','CT_SIDE'],['move','SF-002','CT_SIDE'],['note','실물만 이동 · MES 위치는 스캔 전까지 S300 그대로 (불출 없음 · Q-22)']]},
+ {ph:4,a:'ctInput',t:'커팅 투입 스캔 (SF-001)',who:'작업자 · CUT-01 화면 + 스캐너',tick:5,ops:[
+   ['scan','W_CT','SF-001','BOM ✓ · 숙성 48h ✓ · FIFO ✓'],['move','SF-001','CT'],['status','SF-001','PROC'],['noIf','I/F 없음 · 공정 위치는 SAP 저장위치 없음']]},
+ faOK('SF-001'),
+ judge([['SF-001-F01','OK','Z31']],'QMS 판정 수신 (초품 양품)'),
+ reinputFA(['SF-001-F01']),
+ {ph:4,a:'ctRollEnd',t:'롤 생산 완료 (SF-001)',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
+   ['run','CT',2400,'CUT-01 커팅'],['morph','SF-001','cut',497,'EA'],['move','SF-001','PACKWAIT','포장 대기'],['status','SF-001','WAIT']]},
+ packBox('BOX-0001',[['SF-001','300 EA']],[['SF-001',197,'배분 차감']],'작업자 · 300개 적입 → [박스 적입 · 실적] 확정 → 실적 +300 · 박스 라벨 → 바로 S400','박스 적입 = 실적 → 완제품 입고 (BOX-0001)'),
+ {ph:4,a:'ctInput',t:'SF-002 투입 · 초품 OK · 판정 양품 · 재투입',who:'두 번째 롤도 같은 순서 (투입 → 초품 OK → 생산하며 판정 대기 → 판정 → 샘플 재투입)',tick:60,ops:[
+   ['scan','W_CT','SF-002','숙성 ✓ · FIFO ✓'],['move','SF-002','CT'],['status','SF-002','PROC',1],
+   ['create',{id:'SF-002-F01',kind:'fa',qty:3,unit:'EA',loc:'CT',st:'QWAIT'}],['gene','SF-002','SF-002-F01','3 EA'],['move','SF-002-F01','S500','QMS 판정 대기 (샘플만)'],FANOTE,
+   ['ifOut','초품 결과 OK · TranFMLInspectionData (L4)','SF-002','EIS_MNQ_FML_INSPECT_H'],['ifIn','QMS 판정 양품 · SF-002-F01 (Z31) · InterfaceQmsInspectResult','SF-002-F01','EIR_QM_INSPECT_RESULT'],['status','SF-002-F01','OK'],['move','SF-002-F01','PACKWAIT','재투입 (판정 양품)'],['status','SF-002-F01','WAIT',1]]},
+ {ph:4,a:'ctRollEnd',t:'롤 생산 완료 (SF-002)',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
+   ['run','CT',2000,'CUT-01 커팅'],['morph','SF-002','cut',497,'EA'],['move','SF-002','PACKWAIT','포장 대기'],['status','SF-002','WAIT',1]]},
+ packBox('BOX-0002',[['SF-001','197'],['SF-001-F01','3'],['SF-002','100']],[['SF-001',0,'소진'],['SF-001-F01',0,'소진'],['SF-002',397]],'SF-001 잔여 197 + 재투입 샘플 3 + SF-002 100 → S400','박스 적입 (BOX-0002 · 롤 2개 섞임)'),
+ packBox('BOX-0003',[['SF-002','297'],['SF-002-F01','3']],[['SF-002',100,'잔여 커팅품'],['SF-002-F01',0,'소진']],'SF-002 297 + 재투입 샘플 3 → S400. 완제품창고에 3박스 적재','박스 적입 (BOX-0003) · 작업지시 900 EA 완료'),
+ {ph:6,a:'shipOrder',t:'출하지시 등록 (600 EA)',who:'출하 담당 · MES 출하지시 화면 — 생산과 별개로 S400 재고에서 출하',tick:60,ops:[
+   ['soInit',600],['noIf','I/F 없음 · SAP 출하지시 수신 테이블 없음 (소스 기준)']]},
+ {ph:6,a:'toShip',t:'출하피킹 창고 이동 (2박스)',who:'창고 담당 · S400 → S920 (출하지시 수량만큼)',tick:20,ops:[
+   ['move','BOX-0001','S920'],['ifOut','창고 이동 S400(1000) → S920(1040) · BOX-0001 · UpdateINVInventoryMove','BOX-0001','EIS_MM_STOCK_MOVE_H/D'],
+   ['move','BOX-0002','S920'],['ifOut','창고 이동 S400(1000) → S920(1040) · BOX-0002 · UpdateINVInventoryMove','BOX-0002','EIS_MM_STOCK_MOVE_H/D']]},
+ {ph:6,a:'pick',t:'PDA 피킹',who:'출하 담당 · PDA로 박스 라벨 스캔 (Case 6)',tick:10,ops:[
+   ['scan','W_SH','BOX-0001','1040 ✓ · 지시 잔량 ✓'],['status','BOX-0001','PICK',1],['soPick',300],
+   ['scan','W_SH','BOX-0002','1040 ✓ · 지시 잔량 ✓'],['status','BOX-0002','PICK',1],['soPick',300]]},
+ {ph:6,a:'shipConfirm',t:'출하 확정',who:'출하 담당 · 출하 확정. BOX-0003은 S400 재고로 남음',tick:30,ops:[
+   ['move','BOX-0001','TRUCK_OUT'],['move','BOX-0002','TRUCK_OUT'],['status','BOX-0001','SHIP',1],['status','BOX-0002','SHIP'],['soShip'],
+   ['ifOut','출하 실적 600 EA · UpdateShipOrderList (K5)','TRUCK_OUT','EIS_SD_DLV_RST_H/D']]}]);
+
+// ── TC06 판정 기다리지 않고 생산 ──
+var TC06=TC01.slice(0,12).concat([
+ faOK('SF-001'),
+ {ph:4,a:'ctRollEnd',t:'판정 기다리지 않고 롤 생산 완료',who:'작업자 · [롤 생산 완료] — QMS 판정은 아직',tick:60,ops:[
+   ['run','CT',2400,'CUT-01 커팅'],['morph','SF-001','cut',497,'EA'],['move','SF-001','PACKWAIT','포장 대기']]},
+ packBox('BOX-0001',[['SF-001','300 EA']],[['SF-001',197,'배분 차감']],'작업자 · 300개 적입 → 확정 → 실적 +300 → 바로 S400','박스 적입 = 실적 → S400 (판정 전)'),
+ judge([['SF-001-F01','OK','Z31']],'QMS 판정 수신 (초품 양품)'),
+ reinputFA(['SF-001-F01'])]);
+
+// ── 불량 · 에러 케이스 ──
+var TC02=TC01.slice(0,4).concat([
+ {ph:2,a:'rwInput',t:'불출 전 CKD 투입 시도',who:'작업자 · RW-01 화면에서 CKD-001 스캔 (아직 S100)',tick:5,ops:[
+   ['fail','W_RW','CKD-001','PP0005','공정창고(S250)에 없는 LOT입니다. 현재 S100','불출된 자재만 투입 (추가 장면 · V2 TC02에는 없음)',['C1'],['Q-12']]]},
+ {ph:1,a:'ckdIn',t:'다른 품번 CKD-099 입고',who:'같은 납품에 다른 품번 CKD-PU-99가 섞여 입고',tick:10,ops:[
+   ['create',{id:'CKD-099',kind:'ckd',qty:12,unit:'ROLL',loc:'DOCK_IN',st:'WAIT',note:'품번 CKD-PU-99 (작업지시 BOM에 없음)'}],['move','CKD-099','S100','입고'],
+   ['ifOut','입고 실적 CKD-PU-99 12 ROLL · ReceiveDeliveryLot','CKD-099','EIS_MM_MATL_RCV_RST_H/D']]},
+ {ph:1,a:'issue',t:'불출 (CKD-001 · CKD-099)',who:'자재 담당 · 두 LOT 모두 공정창고로 불출',tick:20,ops:[
+   ['move','CKD-001','S250','불출'],['ifOut','창고 이동 S100(3000) → S250(2000) · CKD-001 · UpdateINVInventoryMove','CKD-001','EIS_MM_STOCK_MOVE_H/D'],
+   ['move','CKD-099','S250','불출'],['ifOut','창고 이동 S100(3000) → S250(2000) · CKD-099 · UpdateINVInventoryMove','CKD-099','EIS_MM_STOCK_MOVE_H/D']]},
+ {ph:2,a:'rwInput',t:'다른 품번 투입 시도',who:'작업자 · CKD-099 스캔',tick:5,ops:[
+   ['fail','W_RW','CKD-099','PP0001','작업지시 BOM에 없는 자재입니다. (CKD-PU-99)','BOM_DTL(WO-001, PP_RW).CHILD_PRODUCT_CODE와 스캔 품번 비교',['D3'],['Q-06']]]},
+ TC01[5],
+ {ph:2,a:'rwInput',t:'같은 CKD 다시 스캔',who:'작업자 · CKD-001 재스캔',tick:2,ops:[
+   ['fail','W_RW','CKD-001','PP0007','이미 투입된 LOT입니다. (CKD-001)','MATERIAL_INPUT_STS 중복 검사',['D4'],['Q-23']]]},
+ TC01[6],
+ {ph:2,a:'rwDone',t:'라벨 스캔 전에 다음 롤 완료',who:'작업자 · SF-001 라벨을 스캔하지 않고 [완료 · 라벨 출력]',tick:50,ops:[
+   ['fail',null,'RW','PP0009','이전 롤(SF-001) 완료 라벨을 먼저 스캔하세요.','검토서 4장: 완료 라벨 스캔 후 다음 롤 진행',['D6'],['Q-19']]]},
+ TC01[7],
+ {ph:2,a:'rwScan',t:'완료 라벨 재스캔',who:'작업자 · SF-001 라벨을 한 번 더 스캔',tick:2,ops:[
+   ['fail','W_RW','SF-001','PP0010','이미 스캔된 라벨입니다. 실적은 늘지 않아요. (SF-001)','검토서 4장: 재스캔은 실적 추가 없음',['D1'],['Q-19'],'info']]},
+ {ph:2,a:'rwDone',t:'롤 완료 · 라벨 출력 (SF-002)',who:'작업자 · 두 번째 롤 감기 완료',tick:50,ops:[
+   ['run','RW',2000,'RW-01 리와인딩 1 ROLL'],['create',{id:'SF-002',kind:'roll',qty:1,unit:'ROLL',loc:'RW_OUT',st:'PEND',note:'실적 미확정'}],['print','P_RW','SF-002']]},
+ {ph:2,a:'rwDefect',t:'현재 롤 불량 등록 (SF-002 · 주름)',who:'작업자 · RW-01 [DEFECT]에서 SF-002 선택 → 사유 주름 (DefectLot 방식)',tick:3,ops:[
+   ['gene','CKD-001','SF-002','1 ROLL'],['qty','CKD-001',10,'롤은 만들어졌으므로 CKD 1롤 소모'],
+   ['create',{id:'SF-002-001',kind:'roll',qty:1,unit:'ROLL',loc:'RW_OUT',st:'DEFECT',note:'불량 SPLIT · 주름'}],['gene','SF-002','SF-002-001','1 ROLL'],['qty','SF-002',0,'전체 불량'],
+   ['note','리와인딩 불량 +1 ROLL · 양품 실적 불변 (H1)']].concat(defectOps('SF-002-001','S300(1010)'))},
+ judge([['SF-002-001','NG','Z33','S540']],'QMS 판정 수신 (불량 → 폐기 창고)')]);
+var TC03=TC01.slice(0,9).concat([
+ {ph:4,a:'ctInput',t:'숙성 전 커팅 투입 시도',who:'작업자 · CUT-01에서 SF-001 스캔 (숙성 시작 직후)',tick:5,ops:[
+   ['move','SF-001','CT_SIDE'],['note','숙성실에서 롤을 꺼내 와 스캔'],
+   ['fail','W_CT','SF-001','PP0002',function(){return '숙성 기준 미달: '+hm(L('SF-001').due-ST.now)+' 부족 · 기준 48h';},'검토서 5장 ②: 현재시각 − 숙성 기준시각 ≥ 설정시간, 미달 시 차단',['E1','I2'],['Q-01']]]},
+ {ph:3,a:'timePass',t:'시간 경과 (완료 15분 전까지)',who:'숙성실(S300)에서 대기',ops:[['clockTo','SF-001',-15],['noIf','I/F 없음 · 창고 이동 없음 (E1 · E2)']]},
+ {ph:4,a:'ctInput',t:'10분 부족한 상태로 다시 투입',who:'작업자 · SF-001 스캔',tick:5,ops:[
+   ['fail','W_CT','SF-001','PP0002',function(){return '숙성 기준 미달: '+hm(L('SF-001').due-ST.now)+' 부족 · 기준 48h';},'검토서 5장 ②: 1분이라도 모자라면 차단',['E1'],['Q-01']]]},
+ {ph:3,a:'timePass',t:'10분 더 경과',who:'숙성실(S300)에서 대기',ops:[['clock',10]]},
+ {ph:4,a:'ctInput',t:'커팅 투입 성공',who:'작업자 · SF-001 스캔',tick:1,ops:[
+   ['scan','W_CT','SF-001','숙성 48h ✓ · FIFO ✓ · BOM ✓'],['move','SF-001','CT'],['status','SF-001','PROC']]}]);
+var TC04=TC01.slice(0,11).concat([
+ {ph:4,a:'ctInput',t:'나중 롤(SF-002) 먼저 스캔',who:'작업자 · CUT-01에서 SF-002 스캔',tick:5,ops:[
+   ['fail','W_CT','SF-002','PP0003','선입 롤 SF-001을 먼저 투입하세요. (예외는 관리자 승인)','검토서 5장 ③ FIFO: 선입 롤 안내',['F1'],['Q-02']]]},
+ {ph:4,a:'ctInput',t:'관리자 승인 후 SF-002 투입',who:'작업자 · SF-002 스캔 → 관리자 A 승인',tick:5,ops:[
+   ['scan','W_CT','SF-002','FIFO 예외 승인 · 관리자 A'],['note','승인자 · 사유 → LOT_HIS.TRAN_COMMENT (승인 방식 협의 F1)'],['move','SF-002','CT'],['status','SF-002','PROC']]},
+ {ph:4,a:'ctInput',t:'SF-001도 투입',who:'작업자 · SF-001 스캔 (다중 투입 · F2 협의)',tick:5,ops:[
+   ['scan','W_CT','SF-001','숙성 ✓ · BOM ✓'],['move','SF-001','CT'],['status','SF-001','PROC']]}]);
+var TC05=TC01.slice(0,12).concat([
+ {ph:4,a:'ctFA',t:'초품 3개 생산 → 팝업 NG → 초품 · 롤 Holding',who:'작업자 · SF-001로 초품 3개(L / M / R) 생산 → 초품 팝업 육안 NG → [작업자 NG · 롤 제거]',tick:15,ops:[
+   ['run','CT',1600,'CUT-01 초품 3개 생산'],['create',{id:'SF-001-F01',kind:'fa',qty:3,unit:'EA',loc:'CT',st:'WAIT',note:'초품 L / M / R'}],['gene','SF-001','SF-001-F01','3 EA'],
+   ['note','초품 팝업 [NG] 선택 → 투입 해제 (MATERIAL_INPUT_STS 삭제) · 이 롤로는 생산 안 함'],
+   ['move','SF-001-F01','S500','초품 NG · QMS 판정 대기'],['status','SF-001-F01','HOLD'],
+   ['move','SF-001','S500','롤 제거 · QMS 판정 대기'],['status','SF-001','HOLD'],
+   ['ifOut','초품 결과 NG · TranFMLInspectionData (송신 여부 L4)','SF-001','EIS_MNQ_FML_INSPECT_H']]},
+ {ph:4,a:'ctInput',t:'다음 롤 SF-002 투입',who:'작업자 · SF-002 스캔 (Q-03 메모: 1번 롤 제거 → 2번 롤 초품 생산)',tick:10,ops:[
+   ['scan','W_CT','SF-002','숙성 ✓ · FIFO ✓ · BOM ✓'],['move','SF-002','CT'],['status','SF-002','PROC']]},
+ faOK('SF-002','SF-002 초품 팝업 OK → 샘플만 QMS'),
+ {ph:5,a:'pack',t:'롤 생산 완료 전에 박스 적입 시도',who:'작업자 · [박스 적입 · 실적]',tick:20,ops:[
+   ['fail','W_CT','CT','PP0017','포장 대기 커팅품이 없습니다. [롤 생산 완료] 후 적재하세요.','흐름: 롤 투입 → 초품 → 롤 생산 완료 → 박스 적재',['I1','N3'],['Q-40']]]},
+ {ph:4,a:'ctRollEnd',t:'롤 생산 완료 (SF-002)',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
+   ['run','CT',2400,'CUT-01 커팅'],['morph','SF-002','cut',497,'EA'],['move','SF-002','PACKWAIT','포장 대기'],['status','SF-002','WAIT']]},
+ packBox('BOX-0001',[['SF-002','300 EA']],[['SF-002',197,'배분 차감']],'작업자 · 300개 적입 → 확정 → 실적 +300 → S400'),
+ judge([['SF-001-F01','NG','Z31','S540'],['SF-001','NG','Z31','S540'],['SF-002-F01','OK','Z31']],'QMS 판정 수신 (NG 롤 · 초품 불량 / SF-002 초품 양품)',
+   [['note','뺀 NG 롤도 QMS가 판정 · 지정 창고 이동한다는 것은 가정 (G5 · Q-03 확인 필요)']]),
+ reinputFA(['SF-002-F01'])]);
+var TC07=TC06.slice(0,15).concat([
+ judge([['SF-001-F01','NG','Z31','S540']],'QMS 판정 수신 (초품 불량)',
+   [['status','SF-001','NG'],['status','BOX-0001','NG'],['note','전동화는 초품 불량 시 샘플만 이동 · 이미 만든 롤 잔여 · 박스 처리는 협의 필요 (Q-34 · Q-43)']]),
+ {ph:4,a:'ctDefect',t:'롤 잔여 · 박스 불량 등록 → S500',who:'품질 담당 · 롤 잔여 커팅품과 S400 박스를 불량 등록 (DefectLot 방식)',tick:10,ops:
+   defectOps('SF-001','S300(1010)').concat(defectOps('BOX-0001','S400(1000)'))},
+ judge([['SF-001','NG','Z33','S540'],['BOX-0001','NG','Z33','S540']],'QMS 판정 수신 (불량 → 폐기 창고)')]);
+function cutDefect(why){return {ph:4,a:'ctDefect',t:'커팅 불량 등록 50 EA ('+why+')',who:'작업자 · CUT-01 [DEFECT · 불량]에서 SF-001 선택 → 50 EA · '+why+' (DefectLot 방식)',tick:5,ops:[
+   ['create',{id:'SF-001-001',kind:'cut',qty:50,unit:'EA',loc:'CT',st:'DEFECT',note:'불량 SPLIT · '+why}],['gene','SF-001','SF-001-001','50 EA'],
+   ['note','롤은 1 ROLL 그대로 · 기대 잔량 497 → 447 EA · 양품 실적 불변 (H1)']].concat(defectOps('SF-001-001','S300(1010)'))};}
+var TC08=TC01.slice(0,12).concat([faOK('SF-001'),judge([['SF-001-F01','OK','Z31']],'QMS 판정 수신 (초품 양품)'),reinputFA(['SF-001-F01']),cutDefect('찍힘'),
+ judge([['SF-001-001','NG','Z33','S540']],'QMS 판정 수신 (불량 → 폐기 창고)'),
+ {ph:4,a:'ctRollEnd',t:'롤 생산 완료 (불량만큼 적게)',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
+   ['run','CT',2000,'CUT-01 커팅'],['morph','SF-001','cut',447,'EA'],['move','SF-001','PACKWAIT','포장 대기'],['status','SF-001','WAIT']]},
+ packBox('BOX-0001',[['SF-001-F01','3'],['SF-001','297']],[['SF-001-F01',0,'소진'],['SF-001',150,'배분 차감']],'재투입 샘플 3 + SF-001 297 → 확정 → S400')]);
+var TC09=TC01.slice(0,12).concat([faOK('SF-001'),judge([['SF-001-F01','OK','Z31']],'QMS 판정 수신 (초품 양품)'),reinputFA(['SF-001-F01']),cutDefect('오염'),
+ judge([['SF-001-001','OK','Z33','PACKWAIT']],'QMS 판정 수신 (불량 LOT 양품 → 지정 창고)',[['note','양품 판정 커팅품의 지정 위치 = 포장 대기로 가정 (N5 협의 필요)']]),
+ {ph:4,a:'ctRollEnd',t:'롤 생산 완료',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
+   ['run','CT',2000,'CUT-01 커팅'],['morph','SF-001','cut',447,'EA'],['move','SF-001','PACKWAIT','포장 대기'],['status','SF-001','WAIT']]},
+ packBox('BOX-0001',[['SF-001-001','50'],['SF-001-F01','3'],['SF-001','247']],[['SF-001-001',0,'소진'],['SF-001-F01',0,'소진'],['SF-001',200,'배분 차감']],'양품 판정 50 + 재투입 샘플 3 + SF-001 247 → 확정 → S400')]);
+var CASES=[
+ {id:'TC01',nm:'TC01 기본 흐름 (입고지시 → 생산 → 출하)',steps:TC01,start:0},
+ {id:'TC02',nm:'TC02 리와인딩 예외 · 롤 불량 → 폐기',steps:TC02,start:4},
+ {id:'TC03',nm:'TC03 숙성 미달 투입 차단',steps:TC03,start:9},
+ {id:'TC04',nm:'TC04 FIFO 위반 → 관리자 승인',steps:TC04,start:11},
+ {id:'TC05',nm:'TC05 초품 팝업 NG → 롤 제거 → 다음 롤 생산',steps:TC05,start:12},
+ {id:'TC06',nm:'TC06 판정 기다리며 생산 → 판정 후 샘플 재투입',steps:TC06,start:12},
+ {id:'TC07',nm:'TC07 초품 QMS 불량 → 롤 · 박스 불량 등록 → 폐기',steps:TC07,start:15},
+ {id:'TC08',nm:'TC08 커팅 불량 SPLIT → 판정 불량 → 폐기',steps:TC08,start:15},
+ {id:'TC09',nm:'TC09 불량 LOT 양품 판정 → 지정 창고 → 재사용',steps:TC09,start:15}];
+var CASE=CASES[0],STEPS=CASE.steps;
+
+// ── 정적 장면 ──
+var STATIC=[];
+function buildStatic(){var S=[];
+  S.push(IB(-3.9,9.5,0,1.0,1.9,1.5,K.truck),IB(-2.9,9.5,0,2.3,1.9,0.7,K.m2));
+  S.push(IB(10.6,0.6,0,3.2,2.0,0.7,K.m),IB(10.8,0.6,0.7,0.2,2.0,1.9,K.m2),IB(13.4,0.6,0.7,0.2,2.0,1.9,K.m2));
+  S.push(IF([11.05,12.15,0.8,2.4,1.25,2.35],function(){var r=rw(),ck=atLoc('RW').length;drawCyl(11.6,1.6,1.8,ck?r.u:0.12,1.6,'y',K.roll[0],K.roll[1],r.on?simT/140:0);}));
+  S.push(IF([12.25,13.35,0.8,2.4,1.25,2.35],function(){var r=rw();drawCyl(12.8,1.6,1.8,r.w,1.6,'y',K.roll[0],K.roll[1],r.on?simT/140:0);}));
+  S.push(IB(14.2,0.7,0,0.6,0.5,1.0,K.m2),IB(14.0,2.9,0,1.2,1.0,0.4,K.m2));
+  // 숙성 랙: 얇은 기둥 6개(앞뒤 x 3열) + 칸마다 선반판. 기둥과 선반판이 x 로 겹치지 않게 나눠야 깊이 정렬이 맞음
+  [15.8,18.2,20.6].forEach(function(px){[0.5,2.4].forEach(function(py){S.push(IB(px,py,0,0.1,0.1,3.41,K.m2));});});
+  [0.25,1.25,2.25,3.33].forEach(function(tz,ti){[[15.9,18.2],[18.3,20.6]].forEach(function(b){S.push(IB(b[0],0.5,tz,b[1]-b[0],2.0,0.08,K.m));});
+    if(ti>0&&ti<3)[16.6,17.6,19.0,20.0].forEach(function(rx,ri){if((ti*3+ri)%4!==1){var cz=tz+0.08+0.35;S.push(IF([rx-0.35,rx+0.35,0.85,2.15,cz-0.35,cz+0.35],function(){drawCyl(rx,1.5,cz,0.35,1.3,'y',K.rollD[0],K.rollD[1],0);}));}});});
+  RACKS.forEach(function(r){var x=r[0],y=r[1],h=1.0;S.push(IF([x,x+1,y,y+1,0,h],function(){drawBox(x,y,0,1,1,h,r[2]);
+    for(var k=1;k<4;k++){var z=h*k/4,a=P(x+0.12,y+1,z),b=P(x+0.88,y+1,z),l=P(x+0.82,y+1,z+0.12);ctx.strokeStyle='rgba(10,16,24,0.8)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+      ctx.fillStyle=(Math.floor(simT/400)+k)%3?'#46c46e':'#2a6b40';ctx.beginPath();ctx.arc(l[0],l[1],1.8,0,7);ctx.fill();}}));});
+  S.push(IB(13.6,9.6,0,3.0,1.4,0.9,K.m),IB(13.8,9.7,0.9,0.25,1.2,2.4,K.m2),IB(16.15,9.7,0.9,0.25,1.2,2.4,K.m2),IB(13.8,9.7,3.3,2.6,1.2,0.3,K.m2));
+  S.push(IF([14.05,16.15,10.26,10.34,1.7,3.3],function(){var on=(ST.run&&ST.run.eq==='CT'&&simT-ST.run.t0<ST.run.dur)||atLoc('CT').some(function(l){return l.kind==='roll'&&l.st==='PROC';}),bz=on?2.0+Math.abs(Math.sin(simT/150))*1.0:3.0;drawBox(14.05,10.26,bz,2.1,0.08,0.25,[K.acc,K.acc2,K.acc2]);}));
+  S.push(IB(17.1,9.7,0,2.0,1.2,0.8,K.m),IB(19.2,10.95,0,0.5,0.4,1.0,K.m2));
+  S.push(IB(11.5,9.2,0,1.4,2.7,0.4,K.m2)); // 커팅기 옆 롤 대차 (숙성실에서 꺼내 온 롤 스캔 대기)
+  // PPC (작업 PC 단말): 받침 · 기둥 · 화면
+  PPCS.forEach(function(c){var x=c[0],y=c[1];S.push(IB(x-0.2,y-0.2,0,0.4,0.4,0.08,K.m2),IB(x-0.05,y-0.05,0.08,0.1,0.1,1.0,K.m2),
+    IF([x-0.3,x+0.3,y-0.06,y+0.06,1.08,1.5],function(){drawBox(x-0.3,y-0.06,1.08,0.6,0.12,0.42,c[3]?['#5a5f66','#7a8088','#62676e']:['#3a4a5c','#1f6fb2','#185a91']);}));});
+  Object.keys(WK).forEach(function(k){var w=WK[k];S.push(IF([w[0]-0.25,w[0]+0.25,w[1]-0.25,w[1]+0.25,0,1.75],function(){
+    drawCyl(w[0],w[1],0.25,0.22,1.0,'z',K.body,K.body);drawCyl(w[0],w[1],1.25,0.16,0.28,'z',K.skin,K.skin);drawCyl(w[0],w[1],1.5,0.2,0.1,'z',K.hat,K.hat);}));});
+  STATIC=S;}
+// 물류 입고 트럭: CKD 입고 단계에 바깥에서 들어와 도크 옆에 선다
+function truckOff(){var t=ST.truckIn;if(!t)return null;var f=Math.min(1,Math.max(0,(simT-t.t0)/t.dur));f=1-Math.pow(1-f,3);return -(1-f)*7;}
+function truckItems(){var o=truckOff();if(o===null)return [];return [IB(-3.9+o,0.9,0,1.0,1.9,1.5,K.truck),IB(-2.9+o,0.9,0,2.3,1.9,0.7,K.m2)];}
+function rw(){var on=ST.run&&ST.run.eq==='RW'&&simT-ST.run.t0<ST.run.dur,pr=on?(simT-ST.run.t0)/ST.run.dur:0;return {on:on,u:on?0.55-0.15*pr:0.5,w:on?0.15+0.35*pr:0.15};}
+function hasLbl(l){return l.lblAt!=null&&simT>=l.lblAt;}
+function lotItem(l){var p=posOf(l),x=p.x,y=p.y,z=p.z,lb=hasLbl(l);
+  // CKD: 팔레트 위에 실제 ROLL 수만큼 세운 롤 (4 x 3 = 12칸). 소비되면 앞쪽부터 빠짐
+  if(l.kind==='ckd')return IF([x-0.8,x+0.8,y-0.6,y+0.6,z,z+1.1],function(){drawBox(x-0.8,y-0.6,z,1.6,1.2,0.15,K.pal);
+    var c=[];for(var j=0;j<3;j++)for(var i=0;i<4;i++)c.push([-0.57+i*0.38,-0.38+j*0.38]);
+    c.slice(0,Math.max(0,Math.min(12,l.qty))).sort(function(a,b){return (a[0]+a[1])-(b[0]+b[1]);})
+      .forEach(function(o){drawCyl(x+o[0],y+o[1],z+0.15,0.17,0.9,'z',K.roll[0],K.roll[1]);});
+    if(lb){var fy=y+0.61;stick([x-0.3,fy,z+0.62],[x+0.3,fy,z+0.62],[x+0.3,fy,z+0.2],[x-0.3,fy,z+0.2]);}});
+  if(l.kind==='roll')return IF([x-0.35,x+0.35,y-0.65,y+0.65,z,z+0.7],function(){drawCyl(x,y,z+0.35,0.35,1.3,'y',K.roll[0],K.roll[1],0);if(lb)stickCyl(x,y,z+0.35,0.35,'y',0.35,1.15,-0.1,0.4);});
+  if(l.kind==='cut'){var h=0.12+0.4*Math.min(1,l.qty/500);// 커팅품(중포장 상자): 박스 적입 전이라 바코드 없음
+    return IB(x-0.4,y-0.27,z,0.8,0.55,h,K.pad);}
+  if(l.kind==='fa')return IB(x-0.22,y-0.17,z,0.45,0.35,0.25,K.fa);
+  return IF([x-0.4,x+0.4,y-0.35,y+0.35,z,z+0.6],function(){drawBox(x-0.4,y-0.35,z,0.8,0.7,0.6,K.box);poly3([[x,y-0.35,z+0.6],[x,y+0.35,z+0.6]],null,'#e9d3a8');
+    if(!lb)return;var t=z+0.602;stick([x+0.05,y-0.25,t],[x+0.33,y-0.25,t],[x+0.33,y+0.22,t],[x+0.05,y+0.22,t]);});}
+
+// ── 3D 그리기 ──
+function drawFloor(){
+  drawBox(-0.5,-0.5,-0.25,22.3,13.5,0.25,K.floor);
+  [[0,4.15,21.6,0.9],[0,8.15,21.6,0.9],[20.75,4.15,0.9,4.9]].forEach(function(a){poly3([[a[0],a[1],0.01],[a[0]+a[2],a[1],0.01],[a[0]+a[2],a[1]+a[3],0.01],[a[0],a[1]+a[3],0.01]],'rgba(255,255,255,0.04)');});
+  ctx.setLineDash([6,5]);[[0,4.15,20.75,4.15],[0,5.05,20.75,5.05],[0,8.15,20.75,8.15],[0,9.05,21.65,9.05],[21.65,4.15,21.65,9.05]].forEach(function(a){
+    var p=P(a[0],a[1],0.01),q=P(a[2],a[3],0.01);ctx.strokeStyle='rgba(242,194,48,0.5)';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();});ctx.setLineDash([]);
+  ZONES.forEach(function(z){var r=z.r;poly3([[r[0],r[1],0.02],[r[0]+r[2],r[1],0.02],[r[0]+r[2],r[1]+r[3],0.02],[r[0],r[1]+r[3],0.02]],z.f,z.b);});}
+function drawZoneNames(){ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='700 11px Malgun Gothic';
+  ZONES.forEach(function(z){if(!z.n)return;var r=z.r,q=P(r[0]+r[2]/2,r[1]+r[3],0);ctx.fillStyle='rgba(242,194,48,0.85)';ctx.fillText(z.n,q[0],q[1]+11);});
+  var to=truckOff();if(to!==null){var tq0=P(-2.4+to,1.85,1.6);ctx.fillStyle='#a8c4e6';ctx.fillText('물류 입고 트럭 (공급사 납품)',tq0[0],tq0[1]-14);}
+  var tq1=P(-2.4,10.45,1.6);ctx.fillStyle='#a8c4e6';ctx.fillText('출하 트럭',tq1[0],tq1[1]-14);
+  ctx.font='700 10px Malgun Gothic';PPCS.forEach(function(c){var q=P(c[0],c[1],1.6);ctx.fillStyle=c[3]?'#9aa1aa':'#8fc6ff';ctx.fillText(c[2],q[0],q[1]-4);});ctx.font='700 11px Malgun Gothic';
+  RACKS.forEach(function(r){var q=P(r[0]+0.5,r[1]+0.5,1.0);ctx.font='700 11px Malgun Gothic';ctx.fillStyle='#cfe0f5';ctx.fillText(r[3],q[0],q[1]-22);
+    ctx.font='10px Malgun Gothic';ctx.fillStyle='#8a9099';ctx.fillText(r[4],q[0],q[1]-9);});
+  ctx.font='700 10px Malgun Gothic';ctx.fillStyle='#9aa1aa';Object.keys(PR).forEach(function(k){var pr=PR[k],q=P(pr[0]+0.3,pr[1]+0.25,1.0);ctx.fillText('라벨 프린터',q[0],q[1]-8);});ctx.font='700 11px Malgun Gothic';}
+// LOT 라벨: 1줄 ID(+상태 점), 2줄 수량. 겹치면 위로 올림 (같은 위치끼리만 쌓던 방식은 떨어진 칸도 쌓아서 어색했음)
+function drawTags(){tagRects=[];var placed=[];
+  live().sort(function(a,b){return a.ord-b.ord;}).forEach(function(l){drawTag(l,placed);});}
+function drawTag(l,placed){var q=lotPt(l.id),act=ST.touched[l.id],hv=hoverLot===l.id||selLot===l.id,s2=prodOf(l)+' · '+l.qty+' '+l.unit;
+  ctx.font='700 11px Malgun Gothic';var w1=ctx.measureText(l.id).width;ctx.font='10px Malgun Gothic';var w2=ctx.measureText(s2).width;
+  var w=Math.max(w1+22,w2+16),h=30,x=q[0]-w/2,yy=q[1]-8-h;
+  for(var k=0;k<20;k++){var hit=placed.some(function(r){return x<r[0]+r[2]+2&&x+w+2>r[0]&&yy<r[1]+r[3]+2&&yy+h+2>r[1];});if(!hit)break;yy-=h+4;}
+  placed.push([x,yy,w,h]);
+  ctx.globalAlpha=act||hv?1:0.55;
+  ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(q[0],yy+h);ctx.lineTo(q[0],q[1]);ctx.stroke();
+  rr(x,yy,w,h,6);ctx.fillStyle='rgba(18,20,23,0.92)';ctx.fill();ctx.lineWidth=hv?2.4:act?1.6:1;ctx.strokeStyle=hv?'#ffd79a':act?'#ff8a1f':'rgba(255,255,255,0.2)';
+  if(l.st==='PEND')ctx.setLineDash([3,2]);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(x+9,yy+9,4,0,7);ctx.fillStyle=stColor(l);ctx.fill();
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.font='700 11px Malgun Gothic';ctx.fillStyle='#eef1f4';ctx.fillText(l.id,x+16,yy+9.5);
+  ctx.font='10px Malgun Gothic';ctx.fillStyle='#ffd79a';ctx.fillText(s2,x+16,yy+22);ctx.globalAlpha=1;
+  if(hv){var p=posOf(l),c=P(p.x,p.y,p.z);ctx.strokeStyle='#ffd79a';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(c[0],c[1],0.8*s,0.45*s,0,0,7);ctx.stroke();}
+  l._tag=[q[0],yy+h/2];tagRects.push([x,yy,w,h,l.id]);}
+function woState(k){var o=ST.wo[k],busy=k==='RW'?atLoc('RW').length>0:atLoc('CT').length>0;return o.done>=o.plan?['완료','#46c46e']:busy||o.done>0?['진행','#4ea1ff']:['대기','#9aa1aa'];}
+function drawWO(){var at={RW:[12.2,1.6,3.3],CT:[15.1,10.3,4.1]};
+  Object.keys(at).forEach(function(k){var a=at[k],q=P(a[0],a[1],a[2]),o=ST.wo?ST.wo[k]:null;
+    var l1=(k==='RW'?'RW-01':'CUT-01')+'  '+(o?ST.wo.id+' · '+(k==='RW'?PROD.SF:PROD.FG):'작업지시 없음'),st=o?woState(k):['',''],l2=o?o.done+' / '+o.plan+' '+o.unit:'';
+    ctx.font='700 11px Malgun Gothic';var w=Math.max(ctx.measureText(l1).width,o?110:0)+16,h=o?40:20,x=q[0]-w/2,y=q[1]-h-6;
+    rr(x,y,w,h,5);ctx.fillStyle='rgba(16,26,38,0.94)';ctx.fill();ctx.strokeStyle=o?st[1]:'#4c5158';ctx.lineWidth=1.4;ctx.stroke();
+    ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle=o?'#cfe0f5':'#6a7079';ctx.fillText(l1,x+8,y+10);
+    if(o){ctx.font='10px Malgun Gothic';ctx.fillStyle='#ffd79a';ctx.fillText(l2,x+8,y+24);ctx.textAlign='right';ctx.fillStyle=st[1];ctx.fillText(st[0],x+w-8,y+24);
+      ctx.fillStyle='#2c3138';ctx.fillRect(x+8,y+32,w-16,3);ctx.fillStyle=st[1];ctx.fillRect(x+8,y+32,(w-16)*Math.min(1,o.done/o.plan),3);}});}
+function dlvState(){return [['입하 대기','#9aa1aa'],['입하','#4ea1ff'],['입고 완료','#46c46e']][ST.dlv.st];}
+function drawDLV(){var q=P(1.3,0.6,2.2),o=ST.dlv,l1='입고지시  '+(o?o.id:'없음'),st=o?dlvState():['',''],l2=o?o.item+' · '+o.plan+' '+o.unit:'';
+  ctx.font='700 11px Malgun Gothic';var w=Math.max(ctx.measureText(l1).width,o?150:0)+16,h=o?40:20,x=q[0]-w/2,y=q[1]-h-6;
+  rr(x,y,w,h,5);ctx.fillStyle='rgba(16,34,26,0.94)';ctx.fill();ctx.strokeStyle=o?st[1]:'#4c5158';ctx.lineWidth=1.4;ctx.stroke();
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle=o?'#d4f5e2':'#6a7079';ctx.fillText(l1,x+8,y+10);
+  if(o){ctx.font='10px Malgun Gothic';ctx.fillStyle='#ffd79a';ctx.fillText(l2,x+8,y+24);ctx.textAlign='right';ctx.fillStyle=st[1];ctx.fillText(st[0],x+w-8,y+24);
+    ctx.fillStyle='#2c3138';ctx.fillRect(x+8,y+32,w-16,3);ctx.fillStyle=st[1];ctx.fillRect(x+8,y+32,(w-16)*o.st/2,3);}}
+function soState(){var o=ST.so;return o.ship?['출하 완료','#b58cff']:o.pick>=o.plan?['피킹 완료','#46c46e']:o.pick>0?['피킹 중','#4ea1ff']:['대기','#9aa1aa'];}
+function drawSO(){var q=P(1.7,11.0,2.2),o=ST.so,l1='출하지시  '+(o?o.id+' · '+PROD.FG:'없음'),st=o?soState():['',''],l2=o?'피킹 '+o.pick+' / '+o.plan+' EA':'';
+  ctx.font='700 11px Malgun Gothic';var w=Math.max(ctx.measureText(l1).width,o?120:0)+16,h=o?40:20,x=q[0]-w/2,y=q[1]-h-6;
+  rr(x,y,w,h,5);ctx.fillStyle='rgba(30,20,40,0.94)';ctx.fill();ctx.strokeStyle=o?st[1]:'#4c5158';ctx.lineWidth=1.4;ctx.stroke();
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle=o?'#e2d4f5':'#6a7079';ctx.fillText(l1,x+8,y+10);
+  if(o){ctx.font='10px Malgun Gothic';ctx.fillStyle='#ffd79a';ctx.fillText(l2,x+8,y+24);ctx.textAlign='right';ctx.fillStyle=st[1];ctx.fillText(st[0],x+w-8,y+24);
+    ctx.fillStyle='#2c3138';ctx.fillRect(x+8,y+32,w-16,3);ctx.fillStyle=st[1];ctx.fillRect(x+8,y+32,(w-16)*Math.min(1,o.pick/o.plan),3);}}
+function bez(a,b,t){var c=[(a[0]+b[0])/2,Math.min(a[1],b[1])-70],u=1-t;return [u*u*a[0]+2*u*t*c[0]+t*t*b[0],u*u*a[1]+2*u*t*c[1]+t*t*b[1]];}
+function tagPt(id){var l=L(id);return l&&l._tag?l._tag:anyPt(id);}
+function drawFx(){
+  ST.fx.forEach(function(f){var t=(simT-f.t0)/(f.dur||1);
+    if(f.k==='pkt'){var a4=anyPt(f.from),b4=anyPt(f.to);if(t>=1){if(!f.done){f.done=1;if(f.arrive)f.arrive();}return;}var pp=bez(a4,b4,Math.max(0,t));env(pp[0],pp[1],f.col,1.3);return;}
+    if(t<0||t>1)return;
+    if(f.k==='beam'){var w=WK[f.w],a=P(w[0],w[1],1.5),b=tagPt(f.id);ctx.strokeStyle='rgba(255,'+(f.ng?60:80)+','+(f.ng?60:80)+','+(0.5+0.5*Math.sin(simT/40))+')';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}
+    if(f.k==='icon'){var b2=tagPt(f.id);icon(b2[0]+ (L(f.id)?0:0),b2[1]-22,f.ok);}
+    if(f.k==='label'){var pr=PR[f.p],a3=P(pr[0]+0.3,pr[1]+0.25,1.0),b3=tagPt(f.id),pt=bez(a3,b3,t);ctx.fillStyle='#fff';ctx.fillRect(pt[0]-8,pt[1]-5,16,10);ctx.fillStyle='#222';for(var i=0;i<5;i++)ctx.fillRect(pt[0]-6+i*2.6,pt[1]-3,1.2,6);}
+    if(f.k==='gene'){var g1=tagPt(f.a),g2=tagPt(f.b);ctx.globalAlpha=t<0.8?1:(1-t)*5;ctx.setLineDash([5,4]);ctx.strokeStyle='#3fd0e0';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(g1[0],g1[1]);ctx.lineTo(g2[0],g2[1]);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;}});}
+function frame(){
+  ctx.fillStyle='#1f2124';ctx.fillRect(0,0,W,H);
+  var g=ctx.createRadialGradient(W/2,H*0.45,10,W/2,H*0.45,W*0.6);g.addColorStop(0,'rgba(80,86,94,0.35)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  if(ST.clk){var f=(simT-ST.clk.t0)/ST.clk.dur;ST.now=f>=1?ST.clk.to:ST.clk.from+(ST.clk.to-ST.clk.from)*Math.max(0,f);if(f>=1)ST.clk=null;}
+  drawFloor();
+  sortItems(STATIC.concat(truckItems(),live().map(lotItem))).forEach(function(it){it.draw();});
+  drawZoneNames();drawDLV();drawWO();drawSO();drawTags();drawFx();
+  document.getElementById('clk').textContent='가상 시각 '+fmtNow();}
+
+// ── 오른쪽 패널 ──
+function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function negPill(c){var n=NEG[c];if(!n)return '';var cl=n[0]==='협의됨'?'p-ok':n[0]==='가정 적용'?'p-as':n[0]==='확인 필요'?'p-ck':'p-ng';return '<span class="pill '+cl+'" title="'+esc(n[1])+'">'+c+' '+n[0]+'</span>';}
+function qPill(q){var n=INQ[q];if(!n)return '';return '<span class="pill '+(n[1]?'p-ok':'p-ng')+'" title="'+esc(n[0])+'">'+q+' '+(n[1]?'회신':'미회신')+'</span>';}
+function invMap(){var m={};live().forEach(function(l){var c=CODE[l.loc];if(!m[c])m[c]={n:0,u:{}};m[c].n++;m[c].u[l.unit]=(m[c].u[l.unit]||0)+l.qty;});return m;}
+function invTxt(e){return e?e.n+' LOT · '+Object.keys(e.u).map(function(u){return e.u[u]+' '+u;}).join(' + '):'';}
+var INV0={},TBLOPEN=false;
+function rows(sec){return ST.lines.filter(function(l){return l.sec===sec;}).map(function(l){
+  return '<div class="row'+(l.lot&&l.lot===hoverLot?' hl':'')+'"'+(l.lot?' data-lot="'+l.lot+'"':'')+'><i>'+l.ic+'</i><span>'+esc(l.t)+'</span></div>';}).join('');}
+function ui(){var st=STEPS[cur],done=opi>=st.ops.length,f=ST.fail;
+  document.getElementById('phs').innerHTML=PH.map(function(p,i){return '<span class="'+(i<st.ph?'done':i===st.ph?'on':'')+'">'+p+'</span>';}).join('');
+  var h='<div class="sec"><div class="ctl"><select id="sCase">'+CASES.map(function(c,i){return '<option value="'+i+'"'+(c===CASE?' selected':'')+'>'+c.nm+'</option>';}).join('')+'</select></div>'+
+    '<div class="ctl"><button id="bFirst" title="처음부터 (1단계)">⏮ 처음부터</button><button id="bPrev">◀</button><button id="bPlay">'+(playing?'⏸':'⏵')+'</button><button id="bNext">▶</button><button id="bSpd">'+speed+'x</button><span class="n">'+(cur+1)+' / '+STEPS.length+'</span></div>'+
+    '<div class="ttl">'+(cur+1)+'. '+esc(st.t)+'</div><div class="who">'+esc(st.who)+'</div>'+
+    (ST.wo?'<div style="margin-top:4px">📋 '+ST.wo.id+' · '+['RW','CT'].map(function(k){var o=ST.wo[k],w=woState(k);return o.eq+' '+o.done+'/'+o.plan+' '+o.unit+' <span style="color:'+w[1]+'">'+w[0]+'</span>';}).join(' · ')+'</div>':'')+
+    (ST.dlv?'<div>📥 '+ST.dlv.id+' · '+ST.dlv.item+' '+ST.dlv.plan+' '+ST.dlv.unit+' <span style="color:'+dlvState()[1]+'">'+dlvState()[0]+'</span></div>':'')+
+    (ST.so?'<div>🚚 '+ST.so.id+' · 피킹 '+ST.so.pick+'/'+ST.so.plan+' EA <span style="color:'+soState()[1]+'">'+soState()[0]+'</span></div>':'')+'</div>';
+  // ② 결과
+  if(f)h+='<div class="sec res ng'+(f.info?' info':'')+'"><h4>② 결과</h4><div class="big">'+(f.info?'⚠ ':'⛔ ')+f.code+' · '+esc(f.msg)+'</div><div>규칙: '+esc(f.rule)+'</div>'+
+    '<div>이 규칙의 협의 상태: '+f.negs.map(negPill).join('')+' '+f.qs.map(qPill).join('')+'</div><div class="mut">'+(f.info?'처리는 되지만 실적은 늘지 않음':'LOT · 재고 · I/F 변화 없음 (롤백)')+'</div></div>';
+  else h+='<div class="sec res'+(done?'':' run')+'"><h4>② 결과</h4><div class="big'+(done?' ok':'')+'">'+(done?'✓ 성공':'진행 중…')+'</div>'+rows('res')+'</div>';
+  // ③ LOT 변화 (+ 선택 LOT 카드)
+  var card='';if(selLot&&L(selLot)){var l=L(selLot);card='<div class="card"><b>'+l.id+'</b> · '+KIND[l.kind]+'<br>품번 '+prodOf(l)+' · '+l.qty+' '+l.unit+' · '+CODE[l.loc]+' · <span style="color:'+stColor(l)+'">'+stLabel(l)+'</span>'+
+    '<div class="mut">'+l.hist.slice(-6).map(esc).join('<br>')+'</div></div>';}
+  var lr=rows('lot');h+='<div class="sec"><h4>③ LOT 변화</h4>'+card+(lr||'<div class="mut">'+(f?'변화 없음':'없음')+'</div>')+'</div>';
+  // ④ 창고 재고
+  var inv=invMap();h+='<div class="sec"><h4>④ 창고 재고</h4><table class="inv">'+INVROWS.map(function(r){var a=invTxt(inv[r[0]]),b=invTxt(INV0[r[0]]);
+    return '<tr class="'+(a!==b?'ch':a?'':'z')+'"><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+(a||'—')+'</td></tr>';}).join('')+'</table></div>';
+  // ⑤ I/F
+  var ir=rows('if');h+='<div class="sec"><h4>⑤ I/F (가상)</h4>'+(ir||'<div class="mut">이번 단계 I/F 없음</div>')+
+    '<div style="margin-top:4px"><span class="q" style="background:#4ea1ff"></span>SAP 누적 · 수신 '+ST.sap.rx+' · 송신 '+ST.sap.tx+'</div></div>';
+  // ⑥ 협의 포인트
+  var ng=(NEGACT[st.a]||[]),qs=(ACTQ[st.a]||[]);h+='<div class="sec"><h4>⑥ 협의 포인트</h4>'+ng.map(function(c){return '<div>'+negPill(c)+' '+esc(NEG[c]?NEG[c][1]:'')+'</div>';}).join('')+
+    (qs.length?'<div style="margin-top:4px">'+qs.map(function(q){return '<div>'+qPill(q)+' '+esc(INQ[q][0])+(INQ[q][1]?' → '+esc(INQ[q][1]):'')+'</div>';}).join('')+'</div>':'')+'</div>';
+  // ▸ 테이블 변경 (기본 접힘)
+  var tl=ST.lines.filter(function(l){return l.sec==='tbl';});
+  h+='<div class="sec"><details id="dTbl"'+(TBLOPEN?' open':'')+'><summary>▸ 테이블 변경 ('+tl.length+') · 내부 확인용</summary>'+tl.map(function(l){return '<div class="mut">'+esc(l.t)+'</div>';}).join('')+'</details></div>';
+  side.innerHTML=h;
+  document.getElementById('bFirst').onclick=function(){goTo(0);};
+  document.getElementById('bPrev').onclick=function(){goTo(cur-1);};document.getElementById('bNext').onclick=function(){goTo(cur+1);};
+  document.getElementById('bPlay').onclick=function(){playing=!playing;ui();};
+  document.getElementById('bSpd').onclick=function(){speed=speed===1?2:speed===2?0.5:1;ui();};
+  document.getElementById('sCase').onchange=function(){CASE=CASES[+this.value];STEPS=CASE.steps;selLot=null;goTo(CASE.start);};
+  document.getElementById('dTbl').ontoggle=function(){TBLOPEN=this.open;};}
+side.onmouseover=function(e){var r=e.target.closest&&e.target.closest('[data-lot]');var v=r?r.getAttribute('data-lot'):null;if(v!==hoverLot){hoverLot=v;}};
+side.onclick=function(e){var r=e.target.closest&&e.target.closest('[data-lot]');if(r){selLot=r.getAttribute('data-lot');ui();}};
+function hit(e){var b=cv.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;for(var i=tagRects.length-1;i>=0;i--){var t=tagRects[i];if(x>=t[0]&&x<=t[0]+t[2]&&y>=t[1]&&y<=t[1]+t[3])return t[4];}return null;}
+cv.onmousemove=function(e){var id=hit(e);cv.style.cursor=id?'pointer':'default';if(id!==hoverLot){hoverLot=id;ui();}};
+cv.onclick=function(e){selLot=hit(e);ui();};
+
+// ── 진행 ──
+var cur=0,opi=0,nextAt=0,doneAt=null,playing=false,speed=1,last=performance.now();
+function goTo(n){n=Math.max(0,Math.min(STEPS.length-1,n));reset();
+  for(var i=0;i<n;i++){ST.step=i;ST.now+=STEPS[i].tick||0;STEPS[i].ops.forEach(function(op){OPS[op[0]](op,false);});}
+  live().forEach(function(l){l.anim=null;});
+  ST.fx=[];ST.lines=[];ST.touched={};ST.run=null;ST.fail=null;ST.step=n;ST.now+=STEPS[n].tick||0;INV0=invMap();cur=n;opi=0;nextAt=simT+400;doneAt=null;ui();}
+function tick(now){var dt=Math.min(100,now-last);last=now;simT+=dt*speed;var st=STEPS[cur];
+  if(opi<st.ops.length&&simT>=nextAt){var op=st.ops[opi++];nextAt=simT+OPS[op[0]](op,true);ui();}
+  else if(opi>=st.ops.length&&doneAt===null&&simT>=nextAt){doneAt=simT;ui();}
+  if(playing&&doneAt!==null&&simT-doneAt>(ST.fail?3500:2000)&&cur<STEPS.length-1)goTo(cur+1);
+  frame();requestAnimationFrame(tick);}
+window.addEventListener('resize',fit);
+fit();buildStatic();goTo(CASE.start);requestAnimationFrame(tick);
+})();
+</script>
+
+</body></html>
