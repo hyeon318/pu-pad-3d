@@ -270,7 +270,7 @@ var FANOTE=['note','초품 팝업 [OK] 선택 → 샘플 S500 QMS 대기 · CUT-
 function packBox(id,gens,qtys,who,t){var ops=[['create',{id:id,kind:'box',qty:300,unit:'EA',loc:'PACKOUT',st:'WAIT'}]];
   gens.forEach(function(g){ops.push(['gene',g[0],id,g[1]]);});qtys.forEach(function(q){ops.push(['qty',q[0],q[1],q[2]]);});
   return {ph:5,a:'pack',t:t||('박스 적입 = 실적 → S400 ('+id+')'),who:who,tick:40,ops:ops.concat([['print','P_CT',id],['note','수량 이동 완료 → 박스 라벨 출력 · 부착'],
-    ['move',id,'S400','완제품 입고'],BOXNOTE,['wo','CT',300],['ifOut','CT 생산 실적 300 EA · 작성 서비스 미확인 (L1)',id,'EIS_PP_PC_WORK_RST']])};}
+    ['move',id,'S400','완제품 입고'],BOXNOTE,['note','적입 순서 = 먼저 생산된 커팅품부터 (FIFO · 초품 샘플은 그 롤의 맨 앞) · I2'],['wo','CT',300],['ifOut','CT 생산 실적 300 EA · 작성 서비스 미확인 (L1)',id,'EIS_PP_PC_WORK_RST']])};}
 // 초품 OK: 샘플 3 EA만 S500, 롤은 계속 커팅
 function faOK(roll,t,who){var f=roll+'-F01';return {ph:4,a:'ctFA',t:t||('초품 팝업 OK → 샘플만 QMS ('+roll+')'),who:who||'작업자 · 초품 3개(L / M / R) 육안 OK → [저장 · 품질 요청]',tick:15,ops:[
   ['create',{id:f,kind:'fa',qty:3,unit:'EA',loc:'CT',st:'WAIT',note:'초품 샘플 SPLIT'}],['gene',roll,f,'3 EA'],
@@ -323,15 +323,15 @@ var TC01=[
  reinputFA(['SF-001-F01']),
  {ph:4,a:'ctRollEnd',t:'롤 생산 완료 (SF-001)',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
    ['run','CT',2400,'CUT-01 커팅'],['morph','SF-001','cut',497,'EA'],['move','SF-001','PACKWAIT','포장 대기'],['status','SF-001','WAIT']]},
- packBox('BOX-0001',[['SF-001','300 EA']],[['SF-001',197,'배분 차감']],'작업자 · 300개 적입 → [박스 적입 · 실적] 확정 → 실적 +300 · 박스 라벨 → 바로 S400','박스 적입 = 실적 → 완제품 입고 (BOX-0001)'),
+ packBox('BOX-0001',[['SF-001-F01','3'],['SF-001','297']],[['SF-001-F01',0,'소진'],['SF-001',200,'배분 차감']],'작업자 · 먼저 생산된 순서로 300개 적입 (재투입 샘플 3 + SF-001 297) → [박스 적입 · 실적] 확정 → 실적 +300 · 박스 라벨 → 바로 S400','박스 적입 = 실적 → 완제품 입고 (BOX-0001)'),
  {ph:4,a:'ctInput',t:'SF-002 투입 · 초품 OK · 판정 양품 · 재투입',who:'두 번째 롤도 같은 순서 (투입 → 초품 OK → 생산하며 판정 대기 → 판정 → 샘플 재투입)',tick:60,ops:[
    ['scan','W_CT','SF-002','숙성 ✓ · FIFO ✓'],['move','SF-002','CT'],['status','SF-002','PROC',1],
    ['create',{id:'SF-002-F01',kind:'fa',qty:3,unit:'EA',loc:'CT',st:'QWAIT'}],['gene','SF-002','SF-002-F01','3 EA'],['move','SF-002-F01','S500','QMS 판정 대기 (샘플만)'],FANOTE,
    ['ifOut','초품 결과 OK · TranFMLInspectionData (L4)','SF-002','EIS_MNQ_FML_INSPECT_H'],['ifIn','QMS 판정 양품 · SF-002-F01 (Z31) · InterfaceQmsInspectResult','SF-002-F01','EIR_QM_INSPECT_RESULT'],['status','SF-002-F01','OK'],['move','SF-002-F01','PACKWAIT','재투입 (판정 양품)'],['status','SF-002-F01','WAIT',1]]},
  {ph:4,a:'ctRollEnd',t:'롤 생산 완료 (SF-002)',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
    ['run','CT',2000,'CUT-01 커팅'],['morph','SF-002','cut',497,'EA'],['move','SF-002','PACKWAIT','포장 대기'],['status','SF-002','WAIT',1]]},
- packBox('BOX-0002',[['SF-001','197'],['SF-001-F01','3'],['SF-002','100']],[['SF-001',0,'소진'],['SF-001-F01',0,'소진'],['SF-002',397]],'SF-001 잔여 197 + 재투입 샘플 3 + SF-002 100 → S400','박스 적입 (BOX-0002 · 롤 2개 섞임)'),
- packBox('BOX-0003',[['SF-002','297'],['SF-002-F01','3']],[['SF-002',100,'잔여 커팅품'],['SF-002-F01',0,'소진']],'SF-002 297 + 재투입 샘플 3 → S400. 완제품창고에 3박스 적재','박스 적입 (BOX-0003) · 작업지시 900 EA 완료'),
+ packBox('BOX-0002',[['SF-001','200'],['SF-002-F01','3'],['SF-002','97']],[['SF-001',0,'소진'],['SF-002-F01',0,'소진'],['SF-002',400]],'먼저 생산된 순서: SF-001 잔여 200 → SF-002 재투입 샘플 3 → SF-002 97 → S400','박스 적입 (BOX-0002 · 롤 2개 섞임)'),
+ packBox('BOX-0003',[['SF-002','300']],[['SF-002',100,'잔여 커팅품']],'SF-002 300 → S400. 완제품창고에 3박스 적재','박스 적입 (BOX-0003) · 작업지시 900 EA 완료'),
  {ph:6,a:'shipOrder',t:'출하지시 등록 (600 EA)',who:'출하 담당 · MES 출하지시 화면 — 생산과 별개로 S400 재고에서 출하',tick:60,ops:[
    ['soInit',600],['noIf','I/F 없음 · SAP 출하지시 수신 테이블 없음 (소스 기준)']]},
  {ph:6,a:'toShip',t:'출하피킹 창고 이동 (2박스)',who:'창고 담당 · S400 → S920 (출하지시 수량만큼)',tick:20,ops:[
@@ -434,7 +434,7 @@ var TC09=TC01.slice(0,12).concat([faOK('SF-001'),judge([['SF-001-F01','OK','Z31'
  judge([['SF-001-001','OK','Z33','PACKWAIT']],'QMS 판정 수신 (불량 LOT 양품 → 지정 창고)',[['note','양품 판정 커팅품의 지정 위치 = 포장 대기로 가정 (N5 협의 필요)']]),
  {ph:4,a:'ctRollEnd',t:'롤 생산 완료',who:'작업자 · [롤 생산 완료]',tick:60,ops:[
    ['run','CT',2000,'CUT-01 커팅'],['morph','SF-001','cut',447,'EA'],['move','SF-001','PACKWAIT','포장 대기'],['status','SF-001','WAIT']]},
- packBox('BOX-0001',[['SF-001-001','50'],['SF-001-F01','3'],['SF-001','247']],[['SF-001-001',0,'소진'],['SF-001-F01',0,'소진'],['SF-001',200,'배분 차감']],'양품 판정 50 + 재투입 샘플 3 + SF-001 247 → 확정 → S400')]);
+ packBox('BOX-0001',[['SF-001-F01','3'],['SF-001-001','50'],['SF-001','247']],[['SF-001-F01',0,'소진'],['SF-001-001',0,'소진'],['SF-001',200,'배분 차감']],'먼저 생산된 순서: 재투입 샘플 3 → 양품 판정 50 → SF-001 247 → 확정 → S400')]);
 var CASES=[
  {id:'TC01',nm:'TC01 기본 흐름 (입고지시 → 생산 → 출하)',steps:TC01,start:0},
  {id:'TC02',nm:'TC02 리와인딩 예외 · 롤 불량 → 폐기',steps:TC02,start:4},
